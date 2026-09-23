@@ -1,0 +1,43 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "default",
+            "description": "Default configuration",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}"
+        },
+        {
+            "name": "nrf52840_flash_debug",
+            "inherits": "default",
+            "description": "Debug build for nRF52840-DK ",
+            "displayName": "nRF52840-DK Debug",
+            "cacheVariables": {
+                "BUILDING_PLATFORM": "nrf52840",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "nrf52840_flash_release",
+            "description": "Release build for nRF52840-DK",
+            "displayName": "nRF52840-DK Release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE":"Release"
+            },
+            "inherits": [
+                "nrf52840_flash_debug"
+            ]
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "nrf52840_flash_debug",
+            "configurePreset": "nrf52840_flash_debug"
+        },
+        {
+            "name": "nrf52840_flash_release",
+            "configurePreset": "nrf52840_flash_release"
+        }
+    ]
+}

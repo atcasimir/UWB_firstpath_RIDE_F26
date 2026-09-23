@@ -1,0 +1,17 @@
+{
+  "calibrations": {
+    "ant0.transceiver": "0x00",
+    "ant0.port": "0x01",
+    "ant0.lna": "0",
+
+    "ant1.transceiver": "0x01",
+    "ant1.port": "0x01",
+    "ant1.lna": "0",
+
+    "ant_set0.tx_ant_path": "0x00",
+    "ant_set0.nb_rx_ants": "0x01",
+    "ant_set0.rx_ants_are_pairs": "0x00",
+    "ant_set0.rx_ants": "0xffff01",
+    "ant_set0.tx_power_control": "0x01"
+  }
+}

@@ -1,0 +1,159 @@
+/*! ----------------------------------------------------------------------------
+ *  @file    le_pend_rx.c
+ *  @brief   Sets data pending bit in ack message if correct criteria is met.
+ *           The data pending bit will be set if the following criteria is met:
+ *           1. The frame received is a MAC command frame.
+ *           2. The address of the device sending the MAC command frame matches
+ *           one of the four 16-bit addresses programmed into LE_PEND01 or
+ *           LE_PEND23 registers and the data pending bits are set in FF_CFG
+ *           register: LE0_PEND - LE3_PEND.
+ *           3.The address of the device sending the MAC command is 16-bits and SSADRAPE bit is set.
+ *           4.The address of the device sending the MAC command is 64-bits and LSADRAPE bit is set.
+ *           5.Security bit is not set in Frame Control and frame version is 0 or 1.
+ *
+ * @author Decawave
+ *
+ * @copyright SPDX-FileCopyrightText: Copyright (c) 2024 Qorvo US, Inc.
+ *            SPDX-License-Identifier: LicenseRef-QORVO-2
+ *
+ */
+#include "deca_probe_interface.h"
+#include <config_options.h>
+#include <deca_device_api.h>
+#include <deca_spi.h>
+#include <example_selection.h>
+#include <port.h>
+#include <shared_defines.h>
+#include <shared_functions.h>
+#include <string.h>
+
+#if defined(TEST_LE_PEND_RX)
+
+extern void test_run_info(unsigned char *data);
+
+/* Example application name */
+#define APP_NAME   "LE PEND RX v1.0"
+#define PAN_ID     0xDECA
+#define SHORT_ADDR 0x5258 /* "RX" */
+#define SRC_ADDR   0x5854 /* "XT" this is the source address value sent by the transmitter in ex LE PEND TX*/
+
+/* Buffer to store received frame. See NOTE 2 below. */
+static uint8_t rx_buffer[FRAME_LEN_MAX];
+
+extern dwt_config_t config_options; 
+
+/**
+ * Application entry point.
+ */
+int le_pend_rx(void)
+{
+    /* Hold copy of status register state here for reference so that it can be examined at a debug breakpoint. */
+    uint32_t status_reg;
+    /* Hold copy of frame length of frame received (if good) so that it can be examined at a debug breakpoint. */
+    uint16_t frame_len;
+
+    /* Print application name on the console. */
+    test_run_info((unsigned char *)APP_NAME);
+
+    /* SPI rate, DW IC supports up to 38 MHz */
+    port_set_dw_ic_spi_fastrate();
+
+    /* Reset DW IC */
+    reset_DWIC(); /* Target specific drive of RSTn line into DW IC low for a period. */
+
+    Sleep(2); // Time needed for DW3000 to start up (transition from INIT_RC to IDLE_RC, or could wait for SPIRDY event)
+
+    /* Probe for the correct device driver. */
+    if (dwt_probe((struct dwt_probe_s *)&dw3000_probe_interf) == DWT_ERROR)
+    {
+        test_run_info((unsigned char *)"PROBE FAILED");
+        while (1) { };
+    }
+
+    while (!dwt_checkidlerc()) /* Need to make sure DW IC is in IDLE_RC before proceeding */ { };
+
+    if (dwt_initialise(DWT_READ_OTP_ALL) == DWT_ERROR)
+    {
+        test_run_info((unsigned char *)"INIT FAILED");
+        while (1) { };
+    }
+
+    /* Enabling LEDs here for debug so that for each RX-enable the D2 LED will flash on DW3000 red eval-shield boards. */
+    dwt_setleds(DWT_LEDS_ENABLE | DWT_LEDS_INIT_BLINK);
+
+    /* Configure DW IC. See NOTE 3 below. */
+    /* if the dwt_configure returns DWT_ERROR either the PLL or RX calibration has failed the host should reset the device */
+    if (dwt_configure(&config_options))
+    {
+        test_run_info((unsigned char *)"CONFIG FAILED     ");
+        while (1) { };
+    }
+
+    /* Set PAN ID and short address. See NOTE 1 below. */
+    dwt_setpanid(PAN_ID);
+    dwt_setaddress16(SHORT_ADDR);
+
+    /* Enable auto ack*/
+    dwt_enableautoack(0, 1);
+    /* Loop forever receiving frames. */
+    while (1)
+    {
+        dwt_configureframefilter(DWT_FF_ENABLE_802_15_4, DWT_FF_MAC_LE2_EN); // filter selection
+        dwt_configure_le_address(SRC_ADDR, LE2);                             // address value "XT" to be written to desired LE address register. XT
+
+        /* Clear local RX buffer to avoid having leftovers from previous receptions  This is not necessary but is included here to aid reading
+         * the RX buffer.
+         * This is a good place to put a breakpoint. Here (after first time through the loop) the local status register will be set for last event
+         * and if a good receive has happened the data buffer will have the data in it, and frame_len will be set to the length of the RX frame. */
+        memset(rx_buffer, 0, sizeof(rx_buffer));
+
+        /* Activate reception immediately. See NOTE 4 below. */
+        dwt_rxenable(DWT_START_RX_IMMEDIATE);
+
+        /* Poll until a frame is properly received or an error/timeout occurs. See NOTE 5 below.
+         * STATUS register is 5 bytes long but, as the event we are looking at is in the first byte of the register, we can use this simplest API
+         * function to access it. */
+        waitforsysstatus(&status_reg, NULL, (DWT_INT_RXFCG_BIT_MASK | SYS_STATUS_ALL_RX_TO | SYS_STATUS_ALL_RX_ERR), 0);
+
+        if (status_reg & DWT_INT_RXFCG_BIT_MASK)
+        {
+            /* A frame has been received, copy it to our local buffer. */
+            frame_len = dwt_getframelength(0);
+            if (frame_len <= FRAME_LEN_MAX)
+            {
+                dwt_readrxdata(rx_buffer, frame_len - FCS_LEN, 0); /* No need to read the FCS/CRC. */
+            }
+
+            /* Clear good RX frame event in the DW IC status register. */
+            dwt_writesysstatuslo(DWT_INT_RXFCG_BIT_MASK);
+            /* Poll DW IC until confirmation of transmission of the ACK frame. */
+            waitforsysstatus(&status_reg, NULL, DWT_INT_TXFRS_BIT_MASK, 0);
+
+            /* Clear TXFRS event. */
+            dwt_writesysstatuslo(DWT_INT_TXFRS_BIT_MASK);
+        }
+        else
+        {
+
+            /* Clear RX error/timeout events in the DW IC status register. */
+            dwt_writesysstatuslo(SYS_STATUS_ALL_RX_TO | SYS_STATUS_ALL_RX_ERR);
+        }
+    }
+}
+#endif
+/*****************************************************************************************************************************************************
+ * NOTES:
+ *
+ * 1. PAN ID and short address are hard coded constants to keep the example simple but for a real product every device should have a unique ID.
+ *    For development purposes it is possible to generate a DW IC unique ID by combining the Lot ID & Part Number values programmed into the DW IC
+ *    during its manufacture. However there is no guarantee this will not conflict with someone else's implementation. We recommended that customers
+ *    buy a block of addresses from the IEEE Registration Authority for their production items.
+ * 2. In this example, maximum frame length is set to 127 bytes which is 802.15.4z UWB standard maximum frame length. DW IC supports an extended frame
+ *    length (up to 1023 bytes long) mode which is not used in this example.
+ * 3. Desired configuration by user may be different to the current programmed configuration. dwt_configure is called to set desired
+ *    configuration.
+ * 4. Manual reception activation is performed here but DW IC offers several features that can be used to handle more complex scenarios or to
+ *    optimise system's overall performance (e.g. timeout after a given time, automatic re-enabling of reception in case of errors, etc.).
+ * 5. We use polled mode of operation here to keep the example as simple as possible but all status events can be used to generate interrupts. Please
+ *    refer to DW IC User Manual for more details on "interrupts".
+ ****************************************************************************************************************************************************/

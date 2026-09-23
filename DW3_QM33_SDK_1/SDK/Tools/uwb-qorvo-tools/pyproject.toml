@@ -1,0 +1,74 @@
+[build-system]
+requires = [ "poetry-core",]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "uwb-qorvo-tools"
+version = "1.1.1"
+description = "Ultrawideband Qorvo Tools"
+authors = [ "Qorvo Inc. <qorvo@qorvo.com>",]
+license = "Proprietary"
+readme = [ "README.md", "LICENSE",]
+[[tool.poetry.packages]]
+include = "lib"
+
+[[tool.poetry.packages]]
+include = "scripts"
+
+[tool.poetry.dependencies]
+python = ">=3.9 <3.11.0"
+pyserial = "*"
+colorama = "*"
+pyftdi = "*"
+pyft4222 = "0.1.2"
+matplotlib = "*"
+PySide2 = "5.15.2.1"
+scikit-learn = "*"
+scipy = "*"
+pyqtgraph = "*"
+colorhash = "*"
+toml = "*"
+
+[tool.poetry.scripts]
+get_cal = "scripts.device.get_cal.get_cal:main"
+get_cap = "scripts.device.get_cap.get_cap:main"
+get_config = "scripts.device.get_config.get_config:main"
+get_device_info = "scripts.device.get_device_info.get_device_info:main"
+load_cal = "scripts.device.load_cal.load_cal:main"
+reset_calibration = "scripts.device.reset_calibration.reset_calibration:main"
+reset_device = "scripts.device.reset_device.reset_device:main"
+set_cal = "scripts.device.set_cal.set_cal:main"
+set_config = "scripts.device.set_config.set_config:main"
+run_fira_test_per_rx = "scripts.fira.run_fira_test_per_rx.run_fira_test_per_rx:main"
+run_fira_test_periodic_tx = "scripts.fira.run_fira_test_periodic_tx.run_fira_test_periodic_tx:main"
+run_fira_test_rx = "scripts.fira.run_fira_test_rx.run_fira_test_rx:main"
+run_fira_test_ss_twr = "scripts.fira.run_fira_test_ss_twr.run_fira_test_ss_twr:main"
+run_fira_twr = "scripts.fira.run_fira_twr.run_fira_twr:main"
+run_qorvo_test_pll_lock = "scripts.qorvo.run_qorvo_test_pll_lock.run_qorvo_test_pll_lock:main"
+run_qorvo_test_tx_cw = "scripts.qorvo.run_qorvo_test_tx_cw.run_qorvo_test_tx_cw:main"
+decode_uci = "scripts.utils.decode_uci.decode_uci:main"
+fp = "scripts.utils.fp.fp:main"
+uqt_info = "scripts.utils.uqt_info.uqt_info:main"
+uqt_ls = "scripts.utils.uqt_ls.uqt_ls:main"
+
+[tool.poetry.dependencies.uwb-uci]
+path = "lib/uwb-uci"
+develop = true
+
+[tool.poetry.dependencies.uqt-utils]
+path = "lib/uqt-utils"
+develop = true
+
+[tool.poetry.group.dev.dependencies]
+pyyaml = "*"
+gitpython = "^3.1.43"
+toml = "*"
+
+[tool.poetry.group.doc.dependencies]
+sphinx = "*"
+myst-parser = "*"
+sphinx-rtd-theme = "*"
+sphinx-exec-code = "*"
+sphinxcontrib-eval = "*"
+sphinxcontrib-programoutput = "*"
+linkify-it-py = "*"
