@@ -17,6 +17,7 @@
 #include <port.h>
 #include <shared_defines.h>
 #include <shared_functions.h>
+#include <stdio.h>
 
 #if defined(TEST_SIMPLE_RX_CIR)
 
@@ -54,7 +55,7 @@ static void print_cir(uint8_t *buf, int n_samples, dwt_cir_read_mode_e mode) {
             sign_img = ((hi_img&0x80) == 0x80) ? 0xFF : 0;
             sprintf(str_to_print, "%ld,%ld,", (int32_t)((uint32_t)sign_re<<24 | (uint32_t)hi_re<<16 | (uint32_t)mid_re<<8 | lo_re), (int32_t)((uint32_t)sign_img<<24 | (uint32_t)hi_img<<16 | (uint32_t)mid_img<<8 | lo_img));
             test_run_info((unsigned char *)str_to_print);   
-            nrf_delay_ms(1); // Delay to allow the UART to keep up with the data
+            Sleep(1); // Delay to allow the UART to keep up with the data (was nrf_delay_ms, Nordic-only)
         }
     }
     else {
@@ -64,9 +65,9 @@ static void print_cir(uint8_t *buf, int n_samples, dwt_cir_read_mode_e mode) {
             hi_re = *ptr++;
             lo_img = *ptr++;
             hi_img = *ptr++;
-            sprintf(str_to_print, "%ld,%ld,", "%d,%d,", (int16_t)(hi_re<<8 | lo_re), (int16_t)(hi_img<<8 | lo_img));
+            sprintf(str_to_print, "%d,%d,", (int16_t)(hi_re<<8 | lo_re), (int16_t)(hi_img<<8 | lo_img)); /* fixed: stray "%ld,%ld," format arg */
             test_run_info((unsigned char *)str_to_print);
-            nrf_delay_ms(1); // Delay to allow the UART to keep up with the data
+            Sleep(1); // Delay to allow the UART to keep up with the data (was nrf_delay_ms, Nordic-only)
         }
     }
     test_run_info((unsigned char *)"\n_________________________________\r\n");

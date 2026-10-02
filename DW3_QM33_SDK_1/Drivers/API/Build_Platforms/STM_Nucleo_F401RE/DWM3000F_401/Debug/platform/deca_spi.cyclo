@@ -1,0 +1,6 @@
+../platform/deca_spi.c:36:5:openspi	1
+../platform/deca_spi.c:47:5:closespi	1
+../platform/deca_spi.c:59:9:writetospiwithcrc	2
+../platform/deca_spi.c:87:9:writetospi	3
+../platform/deca_spi.c:120:10:spi_cs_low_delay	3
+../platform/deca_spi.c:144:9:readfromspi	6

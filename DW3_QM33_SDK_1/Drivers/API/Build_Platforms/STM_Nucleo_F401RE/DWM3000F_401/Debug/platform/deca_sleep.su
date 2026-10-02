@@ -1,0 +1,2 @@
+../platform/deca_sleep.c:18:6:deca_sleep	16	static
+../platform/deca_sleep.c:24:6:deca_usleep	16	static
