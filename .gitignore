@@ -1,1 +1,21 @@
-.vscode/
+# STMCUbeIDE build output
+
+Debug/
+Release/
+
+# Generated build artifacts
+
+*.o
+*.d
+*.su
+*.cyclo
+*.elf
+*.map
+*.list
+*.bin
+*.hex
+
+# Misc
+
+.DS_Store
+Thumbs.db
