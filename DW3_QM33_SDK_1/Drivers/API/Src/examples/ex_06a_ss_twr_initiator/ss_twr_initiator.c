@@ -23,6 +23,7 @@
 #include <port.h>
 #include <shared_defines.h>
 #include <shared_functions.h>
+#include <stdio.h>
 
 #if defined(TEST_SS_TWR_INITIATOR)
 
