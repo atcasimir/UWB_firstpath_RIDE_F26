@@ -1,0 +1,74 @@
+=cmd-param-changed,param="logging enabled",value="on"
+160^done
+(gdb) 
+161^running
+*running,thread-id="all"
+(gdb) 
+162^error,msg="Cannot execute this command while the target is running.\nUse the \"interrupt\" command to stop the target\nand then try again."
+(gdb) 
+=breakpoint-modified,bkpt={number="1",type="breakpoint",disp="keep",enabled="y",addr="0x08019fe8",func="rx_diagnostics",file="C:/Qorvo/UWB_main/DW3_QM33_SDK_1/Drivers/API/Src/examples/ex_02c_rx_diagnostics/rx_diagnostics.c",fullname="C:\\Qorvo\\UWB_main\\DW3_QM33_SDK_1\\Drivers\\API\\Src\\examples\\ex_02c_rx_diagnostics\\rx_diagnostics.c",line="113",thread-groups=["i1"],times="4",original-location="C:\\\\Qorvo\\\\UWB_main\\\\DW3_QM33_SDK_1\\\\Drivers\\\\API\\\\Src\\\\examples\\\\ex_02c_rx_diagnostics\\\\rx_diagnostics.c:106"}
+~"\n"
+~"Breakpoint 1, rx_diagnostics () at C:/Qorvo/UWB_main/DW3_QM33_SDK_1/Drivers/API/Src/examples/ex_02c_rx_diagnostics/rx_diagnostics.c:113\n"
+~"113\t        for (i = 0; i < FRAME_LEN_MAX; i++)\n"
+*stopped,reason="breakpoint-hit",disp="keep",bkptno="1",frame={addr="0x08019fe8",func="rx_diagnostics",args=[],file="C:/Qorvo/UWB_main/DW3_QM33_SDK_1/Drivers/API/Src/examples/ex_02c_rx_diagnostics/rx_diagnostics.c",fullname="C:\\Qorvo\\UWB_main\\DW3_QM33_SDK_1\\Drivers\\API\\Src\\examples\\ex_02c_rx_diagnostics\\rx_diagnostics.c",line="113",arch="armv7e-m"},thread-id="1",stopped-threads="all",core="0"
+163^done,depth="2"
+(gdb) 
+164^done,changelist=[{name="var2.ipatovPOA",value="1288",in_scope="true",type_changed="false",has_more="0"},{name="var2.xtalOffset",value="8147",in_scope="true",type_changed="false",has_more="0"},{name="var2.ciaDiag1",value="536570369",in_scope="true",type_changed="false",has_more="0"},{name="var2.ipatovPeak",value="1602236705",in_scope="true",type_changed="false",has_more="0"},{name="var2.ipatovPower",value="66",in_scope="true",type_changed="false",has_more="0"},{name="var2.ipatovF1",value="2596",in_scope="true",type_changed="false",has_more="0"},{name="var2.ipatovF2",value="2837",in_scope="true",type_changed="false",has_more="0"},{name="var2.ipatovF3",value="2443",in_scope="true",type_changed="false",has_more="0"},{name="var2.ipatovFpIndex",value="47372",in_scope="true",type_changed="false",has_more="0"},{name="var2.ipatovAccumCount",value="107",in_scope="true",type_changed="false",has_more="0"}]
+(gdb) 
+165^done
+(gdb) 
+166^done,threads=[{id="1",target-id="Thread 1",name="main",frame={level="0",addr="0x08019fe8",func="rx_diagnostics",args=[],file="C:/Qorvo/UWB_main/DW3_QM33_SDK_1/Drivers/API/Src/examples/ex_02c_rx_diagnostics/rx_diagnostics.c",fullname="C:\\Qorvo\\UWB_main\\DW3_QM33_SDK_1\\Drivers\\API\\Src\\examples\\ex_02c_rx_diagnostics\\rx_diagnostics.c",line="113",arch="armv7e-m"},state="stopped",core="0"}]
+(gdb) 
+167^done,groups=[{id="i1",type="process",pid="42000",executable="C:\\Qorvo\\UWB_main\\DW3_QM33_SDK_1\\Drivers\\API\\Build_Platforms\\STM_Nucleo_F401RE\\DWM3000F_401\\Debug\\DWM3000_F401.elf",cores=["0"]}]
+(gdb) 
+168^done,stack=[frame={level="0",addr="0x08019fe8",func="rx_diagnostics",file="C:/Qorvo/UWB_main/DW3_QM33_SDK_1/Drivers/API/Src/examples/ex_02c_rx_diagnostics/rx_diagnostics.c",fullname="C:\\Qorvo\\UWB_main\\DW3_QM33_SDK_1\\Drivers\\API\\Src\\examples\\ex_02c_rx_diagnostics\\rx_diagnostics.c",line="113",arch="armv7e-m"},frame={level="1",addr="0x080006c8",func="main",file="../Core/Src/main.c",fullname="C:\\Qorvo\\UWB_main\\DW3_QM33_SDK_1\\Drivers\\API\\Build_Platforms\\STM_Nucleo_F401RE\\DWM3000F_401\\Core\\Src\\main.c",line="122",arch="armv7e-m"}]
+(gdb) 
+169^done,changelist=[]
+(gdb) 
+170^done,changelist=[]
+(gdb) 
+171^done,changelist=[]
+(gdb) 
+172^done,changelist=[]
+(gdb) 
+173^done,bkpt={number="3",type="breakpoint",disp="keep",enabled="y",addr="0x08019fe8",func="rx_diagnostics",file="C:/Qorvo/UWB_main/DW3_QM33_SDK_1/Drivers/API/Src/examples/ex_02c_rx_diagnostics/rx_diagnostics.c",fullname="C:\\Qorvo\\UWB_main\\DW3_QM33_SDK_1\\Drivers\\API\\Src\\examples\\ex_02c_rx_diagnostics\\rx_diagnostics.c",line="113",thread-groups=["i1"],times="0",original-location="C:\\\\Qorvo\\\\UWB_main\\\\DW3_QM33_SDK_1\\\\Drivers\\\\API\\\\Src\\\\examples\\\\ex_02c_rx_diagnostics\\\\rx_diagnostics.c:108"}
+(gdb) 
+174^done
+(gdb) 
+175^done,value="{int (void)} 0x8019f70 <rx_diagnostics>"
+(gdb) 
+176^done,name="var7",numchild="0",value="{int (void)} 0x8019f70 <rx_diagnostics>",type="int (void)",has_more="0"
+(gdb) 
+177^done,format="octal",value="0200"
+(gdb) 
+178^done,format="natural",value="{int (void)} 0x8019f70 <rx_diagnostics>"
+(gdb) 
+179^done,format="decimal",value="-128"
+(gdb) 
+180^done,format="natural",value="{int (void)} 0x8019f70 <rx_diagnostics>"
+(gdb) 
+181^done,format="binary",value="10000000"
+(gdb) 
+182^done,format="natural",value="{int (void)} 0x8019f70 <rx_diagnostics>"
+(gdb) 
+183^done,format="hexadecimal",value="0x80"
+(gdb) 
+184^done,format="natural",value="{int (void)} 0x8019f70 <rx_diagnostics>"
+(gdb) 
+185^done,bkpt={number="4",type="breakpoint",disp="keep",enabled="y",addr="0x0801a07a",func="rx_diagnostics",file="C:/Qorvo/UWB_main/DW3_QM33_SDK_1/Drivers/API/Src/examples/ex_02c_rx_diagnostics/rx_diagnostics.c",fullname="C:\\Qorvo\\UWB_main\\DW3_QM33_SDK_1\\Drivers\\API\\Src\\examples\\ex_02c_rx_diagnostics\\rx_diagnostics.c",line="148",thread-groups=["i1"],times="0",original-location="C:\\\\Qorvo\\\\UWB_main\\\\DW3_QM33_SDK_1\\\\Drivers\\\\API\\\\Src\\\\examples\\\\ex_02c_rx_diagnostics\\\\rx_diagnostics.c:146"}
+(gdb) 
+186^done
+(gdb) 
+~"Kill the program being debugged? (y or n) [answered Y; input not from terminal]\n"
+=thread-exited,id="1",group-id="i1"
+=thread-group-exited,id="i1"
+~"[Inferior 1 (Remote target) killed]\n"
+187^done
+(gdb) 
+188^done,threads=[]
+(gdb) 
+189^done,groups=[{id="i1",type="process",executable="C:\\Qorvo\\UWB_main\\DW3_QM33_SDK_1\\Drivers\\API\\Build_Platforms\\STM_Nucleo_F401RE\\DWM3000F_401\\Debug\\DWM3000_F401.elf"}]
+(gdb) 
+190^done,groups=[{id="i1",type="process",executable="C:\\Qorvo\\UWB_main\\DW3_QM33_SDK_1\\Drivers\\API\\Build_Platforms\\STM_Nucleo_F401RE\\DWM3000F_401\\Debug\\DWM3000_F401.elf"}]
+(gdb) 
+191^exit

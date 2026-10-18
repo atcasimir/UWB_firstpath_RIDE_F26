@@ -1,6 +1,6 @@
 /*! ----------------------------------------------------------------------------
  *  @file    read_dev_id.c
- *  @brief   Read the DW IC's device ID. 
+ *  @brief   Read the DW IC's device ID. Print device ID. Check device ID.
  *  @author  David Hunt
  *           Adapted from Qorvo DW3_QM33_SDK_1.1.1 read_dev_id.c
  */
@@ -22,6 +22,7 @@ int read_dev_id(void)
 
     int err;
     uint32_t dev_id;
+    unsigned char dev_id_text[32];
 
     // Print application name to the console.
     print((unsigned char *)APP_NAME);
@@ -42,9 +43,14 @@ int read_dev_id(void)
         while (1) { };
     }
 
+    // Read device ID.
     dev_id = dwt_readdevid();
 
-    /* Reads and validate device ID returns DWT_ERROR if it does not match expected else DWT_SUCCESS */
+    // Convert device ID to string and print.
+    sprintf((char*)dev_id_text, "Device ID: 0x%08lX", (unsigned long)dev_id);
+    print(dev_id_text);
+
+    // Reads and validate device ID returns DWT_ERROR if it does not match expected else DWT_SUCCESS.
     if ((err = dwt_check_dev_id()) == DWT_SUCCESS)
     {
         print((unsigned char *)"DEV ID OK");

@@ -60,7 +60,8 @@ static void MX_SPI1_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
-int read_dev_id(void);
+//int rx_diagnostics(void);
+int simple_rx_cir(void);
 
 /*! ------------------------------------------------------------------------------------------------------------------
  * @fn test_run_info()
@@ -123,7 +124,9 @@ int main(void)
   MX_SPI1_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  read_dev_id();
+
+  //rx_diagnostics();
+  simple_rx_cir();
   /* USER CODE END 2 */
 
   /* Infinite loop */
