@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "uqt-utils"
+version = "0.0.0"
+description = "Helper library for UQT"
+authors = ["Qorvo Inc. <qorvo@qorvo.com>"]
+license = "Proprietary"
+
+[tool.poetry.dependencies]
+python = ">=3.9 <3.11.0"
+uwb-uci = { path = "../uwb-uci", develop = true }
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

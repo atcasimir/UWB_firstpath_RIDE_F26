@@ -1,0 +1,40 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+
+    // "cortex-debug.JLinkGDBServerPath": "C:/Program Files/SEGGER/JLink/JLinkGDBServerCL.exe", // set it in local VS Code settings (for Cortex-Debug)
+    // "cortex-debug.armToolchainPath": "C:/GnuToolsArmForEmbedded/gcc-arm-none-eabi-12.2/bin" // set it in local VS Code settings (for Cortex-Debug)
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "nRF52840-DK",
+            "cwd": "${workspaceFolder}",
+            "executable": "${command:cmake.launchTargetPath}",
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "jlink",
+            "linux":{
+                "gdbPath": "gdb-multiarch"
+            },
+            "device": "nRF52840_xxAA",
+            "interface": "swd",
+            "runToEntryPoint": "main",
+            "showDevDebugOutput": "raw", // Shows output of GDB, helpful when something is not working right
+            "serverArgs": ["-gui"],    // Displays JLINK GUI so you can select which board to program if more than 1 connected
+            "svdFile": "${workspaceFolder}/API/Build_platforms/nRF52840-DK/sdk/modules/nrfx/mdk/nrf52840.svd",
+            "rttConfig": {
+                "enabled": true,
+                "address": "auto",
+                "decoders": [
+                    {
+                        "label": "",
+                        "port": 0,
+                        "type": "console"
+                    }
+                ]
+            }
+        }
+    ]
+}
+

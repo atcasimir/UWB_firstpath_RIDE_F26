@@ -1,0 +1,134 @@
+## How the pieces fit together
+
+This works the same on Windows and macOS.
+
+- **CubeIDE** compiles your C code and **flashes** it into the STM32's memory through the on-board ST-Link.
+- **After flashing, the board runs by itself.** Give it power and it starts the program from the beginning, every time.
+- **The same USB cable also carries a serial port.** On macOS it's `/dev/cu.usbmodem…`; on Windows it's a **COM port**, such as `COM5`. It carries the text the program prints.
+- **The terminal is only a viewer for that text.** The program runs whether or not it's open.
+
+**Windows only, one-time check:** Windows needs the ST-Link USB driver. CubeIDE's installer normally adds it. Open **Device Manager → Ports (COM & LPT)** with the board plugged in. You should see **"STMicroelectronics STLink Virtual COM Port (COMx)"**. If it shows a yellow warning icon instead, install **STSW-LINK009** from st.com.
+
+## The routine for any example
+
+1. **Choose the example.** In `Src/example_selection.h`, uncomment exactly **one** `#define TEST_…` line.
+2. **Build.** Click the hammer, or press **Ctrl+B** on Windows / **⌘B** on macOS. Check for 0 errors.
+3. **Flash.** Click the green **Run** button and wait for `Download verified successfully`. The `Shutting down... exit.` that follows is normal.
+4. **Open the viewer**, if you need output:
+
+   | | Command |
+   |---|---|
+   | **Windows** | `uwbterm` (PowerShell, after the one-time setup below), or PuTTY: Connection type **Serial**, Serial line **COM5**, Speed **115200** |
+   | **macOS** | `(stty 115200 raw -echo; cat) < /dev/cu.usbmodem103`, or `uwbterm` |
+
+5. **Press RESET** on the Nucleo, so you see the output from the beginning.
+6. **Close the viewer** with **Ctrl+C**. To close PuTTY, just close its window.
+
+You can leave the viewer open while you flash again, on both systems.
+
+## Finding the board's port
+
+| | Command |
+|---|---|
+| **Windows** (PowerShell) | `Get-CimInstance Win32_PnPEntity \| ? Name -match 'STLink.*COM' \| select Name` |
+| **macOS** | `ls /dev/cu.usbmodem*` |
+
+With two boards plugged in, you'll get two entries. Unplug one if you need to tell them apart.
+
+## Do you need the viewer for each example?
+
+| Example | What it prints | Viewer needed? |
+|---|---|---|
+| `TEST_READING_DEV_ID` | `DEV ID OK` / `FAILED` | Yes, that's the whole result |
+| `TEST_SIMPLE_TX` | Only its name at startup, or an error | No. Once it's running, it just transmits |
+| `TEST_SIMPLE_RX` | Only its name at startup | Not much use. Received data is stored in memory, not printed |
+| `TEST_RX_DIAG` | Only its name at startup | Not much use. Results are stored in memory, not printed |
+| `TEST_SIMPLE_RX_CIR` | The full CIR for every packet | **Yes**, this is your data |
+
+For the examples that only store results in memory, use **Debug** (the bug icon), then Resume (F8), and watch the variables in **Live Expressions**. This works the same on both systems.
+
+## The `uwbterm` shortcut
+
+**macOS (zsh).** Paste this into Terminal once:
+
+```bash
+cat >> ~/.zshrc <<'EOF'
+uwbterm() { local p=${1:-$(ls /dev/cu.usbmodem* 2>/dev/null | head -1)}; [ -z "$p" ] && { echo "No board found"; return 1; }; echo "Listening on $p at 115200 (Ctrl-C to quit)"; (stty 115200 raw -echo; cat) < "$p"; }
+EOF
+source ~/.zshrc
+```
+
+**Windows (PowerShell).** Use the built-in **Windows PowerShell**, the blue icon. One-time setup:
+
+1. Allow your own profile script to run:
+   ```powershell
+   Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+   ```
+2. Create your PowerShell profile file if it doesn't exist yet, and open it in Notepad:
+   ```powershell
+   if (!(Test-Path $PROFILE)) { New-Item -Type File -Force $PROFILE }; notepad $PROFILE
+   ```
+3. Paste this into Notepad, save, and close it:
+   ```powershell
+   function uwbterm {
+       param([string]$Port, [string]$LogFile, [int]$Baud = 115200)
+       if (-not $Port) {
+           $dev = Get-CimInstance Win32_PnPEntity | Where-Object { $_.Name -match 'STLink.*\(COM\d+\)' } | Select-Object -First 1
+           if ($dev -and $dev.Name -match '\((COM\d+)\)') { $Port = $Matches[1] }
+       }
+       if (-not $Port) { Write-Host "No board found"; return }
+       $sp = New-Object System.IO.Ports.SerialPort $Port, $Baud, 'None', 8, 'One'
+       $sp.Open()
+       $log = $null
+       if ($LogFile) {
+           $path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($LogFile)
+           $log = [System.IO.StreamWriter]::new($path, $true)
+       }
+       Write-Host "Listening on $Port at $Baud (Ctrl-C to quit)"
+       try {
+           while ($true) {
+               $d = $sp.ReadExisting()
+               if ($d) { [Console]::Write($d); if ($log) { $log.Write($d) } }
+               else { Start-Sleep -Milliseconds 20 }
+           }
+       } finally {
+           $sp.Close()
+           if ($log) { $log.Close() }
+       }
+   }
+   ```
+4. Load it into the current window: `. $PROFILE`. New PowerShell windows load it automatically.
+
+Then, on either system:
+
+| | Auto-detect the board | Choose a specific board |
+|---|---|---|
+| **Windows** | `uwbterm` | `uwbterm COM7` |
+| **macOS** | `uwbterm` | `uwbterm /dev/cu.usbmodem1103` |
+
+## Saving a CIR capture to a file
+
+| | Command |
+|---|---|
+| **Windows** | `uwbterm -LogFile cir_capture.txt` |
+| **macOS** | `uwbterm \| tee cir_capture.txt` |
+
+Both show the output on screen and save it to the file at the same time.
+
+## Ending a session
+
+1. Close the viewer: **Ctrl+C**, or close the PuTTY window.
+2. If you used **Debug**, click the red **Terminate** square in CubeIDE.
+3. Unplug the board. There's nothing to eject on either system.
+
+The only times not to unplug are during flashing (before "Download verified") and during an ST-Link firmware upgrade.
+
+## If something goes wrong
+
+| Symptom | Windows | macOS |
+|---|---|---|
+| **Nothing appears** | Press RESET with the viewer open | Same |
+| **Garbage characters** | Check the speed is **115200** in PuTTY or `uwbterm` | Use the `(stty …; cat)` form or `uwbterm`, not `stty -f` |
+| **Port busy** ("Access denied" or "Resource busy") | Close the other viewer: PuTTY, another PowerShell window, or CubeIDE's Terminal. If you can't find it, unplug and replug the board | `lsof \| grep -i usbmodem`, then `kill -9 <PID>`. For a leftover `screen` session, the process is named `SCREEN` |
+| **"No ST-LINK detected"** | Check the cable carries data and the driver shows in Device Manager. Quit other ST tools | Check the cable carries data. Quit other ST tools |
+| **No COM port / no `usbmodem`** | Driver missing (yellow icon in Device Manager): install STSW-LINK009 | Most likely a charge-only cable. Also check "Allow accessories to connect" under Privacy & Security |

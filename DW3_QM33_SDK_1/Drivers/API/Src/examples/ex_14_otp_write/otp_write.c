@@ -1,0 +1,70 @@
+/*! ----------------------------------------------------------------------------
+ *  @file    otp_write.c
+ *  @brief   This example writes to the OTP memory and check if the write was successful.
+ *
+ * @author Decawave
+ *
+ * @copyright SPDX-FileCopyrightText: Copyright (c) 2024 Qorvo US, Inc.
+ *            SPDX-License-Identifier: LicenseRef-QORVO-2
+ *
+ */
+
+#include "deca_probe_interface.h"
+#include <deca_device_api.h>
+#include <example_selection.h>
+#include <port.h>
+#include <stdio.h>
+
+#if defined(TEST_OTP_WRITE)
+
+extern void test_run_info(unsigned char *data);
+
+/* Example application name and version to print to the console. */
+#define APP_NAME    "OTP Write      "
+#define OTP_ADDRESS 0x50 // Address to write - OTP
+#define OTP_DATA    0x87654321 // Data to write - OTP
+
+/**
+ * Application entry point.
+ */
+int otp_write(void)
+{
+    int err;
+    /* Print application name on the console. */
+    test_run_info((unsigned char *)APP_NAME);
+
+    /* Configure SPI rate, DW3000 supports up to 38 MHz */
+    port_set_dw_ic_spi_fastrate();
+
+    /* Reset DW IC */
+    reset_DWIC(); /* Target specific drive of RSTn line into DW IC low for a period. */
+
+    Sleep(2); // Time needed for DW3000 to start up (transition from INIT_RC to IDLE_RC, or could wait for SPIRDY event)
+
+    /* Probe for the correct device driver. */
+    if (dwt_probe((struct dwt_probe_s *)&dw3000_probe_interf) == DWT_ERROR)
+    {
+        test_run_info((unsigned char *)"PROBE FAILED");
+        while (1) { };
+    }
+
+    err = dwt_otpwriteandverify(OTP_DATA, OTP_ADDRESS);
+    if (err == DWT_SUCCESS)
+    {
+        test_run_info((unsigned char *)"OTP write PASS");
+    }
+    else
+    {
+        test_run_info((unsigned char *)"OTP write FAIL");
+    }
+
+    return err;
+}
+
+#endif
+/*****************************************************************************************************************************************************
+ * NOTES:
+ * 1. You can write only 1 time to the memory - OTP memory.
+ * 2. You can write only to a specific address range (see specification/manual).
+ * 3. Data size is 32bit.
+ ****************************************************************************************************************************************************/

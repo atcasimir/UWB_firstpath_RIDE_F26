@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "uwb-uci"
+version = "0.0.0"
+description = "UCI implementation library"
+authors = ["Qorvo Inc. <qorvo@qorvo.com>"]
+license = "Proprietary"
+packages = [
+    { include = "uci"},
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9 <3.11.0"
+pyserial = "*"
+colorama = "*"
+pyftdi = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "*"
+myst-parser = "*"
+sphinx-rtd-theme = "*"
+sphinx-exec-code = "*"
+sphinxcontrib-eval = "*"
+sphinxcontrib-programoutput = "*"
+linkify-it-py = "*"

@@ -1,0 +1,135 @@
+/*! ----------------------------------------------------------------------------
+ *  @file    continuous_frame.c
+ *  @brief   Continuous frame mode example code
+ *
+ *           This example application enables continuous frame mode to transmit frames without interruption for 2 minutes before stopping all
+ *           operation.
+ *
+ * @author Decawave
+ *
+ * @copyright SPDX-FileCopyrightText: Copyright (c) 2024 Qorvo US, Inc.
+ *            SPDX-License-Identifier: LicenseRef-QORVO-2
+ *
+ */
+#include "deca_probe_interface.h"
+#include <config_options.h>
+#include <deca_device_api.h>
+#include <deca_spi.h>
+#include <example_selection.h>
+#include <port.h>
+
+#if defined(TEST_CONTINUOUS_FRAME)
+
+extern void test_run_info(unsigned char *data);
+
+/* Example application name and version to print to the console. */
+#define APP_NAME "CONT FRAME v1.0"
+
+/* Start-to-start delay between frames, expressed in halves of the 499.2 MHz fundamental frequency (around 4 ns). See NOTE 1 below. */
+#define CONT_FRAME_PERIOD 249600
+
+/* Continuous frame duration, in milliseconds. */
+#define CONT_FRAME_DURATION_MS 120000
+
+/* Recommended TX power and Pulse Generator delay values for Channel 5 and 64 MHz PRF as selected in the configuration above. See NOTE 2 below. */
+/* Power configuration has been specifically set for DW3000 B0 rev devices. */
+extern dwt_txconfig_t txconfig_options;
+extern dwt_txconfig_t txconfig_options_ch9;
+extern dwt_config_t config_options;
+
+/* The frame sent in this example is an 802.15.4e standard blink. It is a 12-byte frame composed of the following fields:
+ *     - byte 0: frame type (0xC5 for a blink).
+ *     - byte 1: sequence number, put to 0.
+ *     - byte 2 -> 9: device ID, hard coded constant in this example for simplicity.
+ *     - byte 10/11: frame check-sum, automatically set by DW IC in a normal transmission and set to 0 here for simplicity.
+ * See NOTEs 1 and 3 below. */
+static uint8_t tx_msg[] = { 0xC5, 0, 'D', 'E', 'C', 'A', 'W', 'A', 'V', 'E', 0, 0 };
+
+/**
+ * Application entry point.
+ */
+int continuous_frame_example(void)
+{
+    /* Print application name on the console. */
+    test_run_info((unsigned char *)APP_NAME);
+
+    /* Configure SPI rate, DW3000 supports up to 38 MHz */
+    port_set_dw_ic_spi_fastrate();
+
+    /* Reset DW IC */
+    reset_DWIC(); /* Target specific drive of RSTn line into DW IC low for a period. */
+
+    Sleep(2); // Time needed for DW3000 to start up (transition from INIT_RC to IDLE_RC
+
+    /* Probe for the correct device driver. */
+    if (dwt_probe((struct dwt_probe_s *)&dw3000_probe_interf) == DWT_ERROR)
+    {
+        test_run_info((unsigned char *)"PROBE FAILED");
+        while (1) { };
+    }
+
+    while (!dwt_checkidlerc()) /* Need to make sure DW IC is in IDLE_RC before proceeding */ { };
+
+    if (dwt_initialise(DWT_READ_OTP_ALL) == DWT_ERROR)
+    {
+        test_run_info((unsigned char *)"INIT FAILED     ");
+        while (1) { };
+    }
+
+    /* Configure DW IC. */
+    /* if the dwt_configure returns DWT_ERROR either the PLL or RX calibration has failed the host should reset the device */
+    if (dwt_configure(&config_options))
+    {
+        test_run_info((unsigned char *)"CONFIG FAILED     ");
+        while (1) { };
+    }
+    
+    if(config_options.chan == 9)
+    {
+      dwt_configuretxrf(&txconfig_options_ch9);
+    }
+    else
+    {
+      dwt_configuretxrf(&txconfig_options);
+    }
+
+    /* Activate continuous frame mode. */
+    dwt_configcontinuousframemode(CONT_FRAME_PERIOD);
+
+    /* Once configured, continuous frame must be started like a normal transmission. */
+    dwt_writetxdata(sizeof(tx_msg), tx_msg, 0); /* Zero offset in TX buffer. */
+    dwt_writetxfctrl(sizeof(tx_msg), 0, 0);     /* Zero offset in TX buffer, no ranging. */
+    dwt_starttx(DWT_START_TX_IMMEDIATE);
+
+    /* Wait for the required period of repeated transmission. */
+    Sleep(CONT_FRAME_DURATION_MS);
+
+    /* Disable continuous frame mode. */
+    dwt_disablecontinuousframemode();
+
+    /* BREAKPOINT */
+    /* Add a breakpoint here (before the soft reset) to see the continuous frame stop. */
+    /* This would be useful if you are monitoring the waveform on a spectrum analyser. */
+
+    /* Software reset of the DW IC to deactivate continuous frame mode and go back to default state. Initialisation and configuration should be run
+     * again if one wants to get the DW IC back to normal operation. */
+    dwt_softreset(1);
+
+    /* End here. */
+    while (1) { };
+}
+#endif
+/*****************************************************************************************************************************************************
+ * NOTES:
+ *
+ * 1. Continuous frame mode is typically used to tune transmit power for regulatory purposes. This example has been designed to reproduce the use case
+ *    of a tag blinking at a high rate: the blink length is around 180 us in this configuration, emitted once per millisecond. In this configuration,
+ *    the frame's transmission power can be increased while still complying with regulations. For more details about the management of TX power, the
+ *    user is referred to DW IC User Manual.
+ * 2. The user is referred to DW IC User Manual for references values applicable to different channels and/or PRF. Those reference values may need to
+ *    be tuned for optimum performance and regulatory approval depending on the target product design.
+ * 3. The device ID is a hard coded constant in the blink to keep the example simple but for a real product every device should have a unique ID.
+ *    For development purposes it is possible to generate a DW IC unique ID by combining the Lot ID & Part Number values programmed into the
+ *    DW IC during its manufacture. However there is no guarantee this will not conflict with someone elses implementation. We recommended that
+ *    customers buy a block of addresses from the IEEE Registration Authority for their production items. See "EUI" in the DW IC User Manual.
+ ****************************************************************************************************************************************************/

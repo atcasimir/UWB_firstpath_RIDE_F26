@@ -1,0 +1,11 @@
+---
+version: 1  # Version of the test metadata format
+test_name: "test_pll_cal"  # Name of the test
+description: "Run Pll calibration test"  # Brief description of the test
+board: "NRF52840DK" # JLink devices name of the target MCU (e.g., NRF52840DK, QM3582x, QM3572x, etc.)
+chip_names: ["DW3110", "DW3120", "DW3210", "DW3220", "DW3720", "DW3300Q", "QM33110", "QM33120"] #  # Devices currently supported:
+                  # - "DW3110", "DW3120", "DW3210", "DW3220", "DW3720", "DW3300Q", "QM33110", "QM33120"
+                  # - "QPF5100Q", "QM35720", "QM35725", "QM35725S", "QM35820", "QM35822", "QM35822S"
+program_interface: "SWD"  # Programming interfaces (e.g., JTAG, SWD, etc.)
+io_interface: "RTT"  # Input/output interfaces (e.g., RTT, UART, etc.)
+expected_output: "--- PASS ---"  # Expected output from the device for validation
