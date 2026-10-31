@@ -1,0 +1,50 @@
+Real: 124
+
+(Means)
+Test 04: 112, d12, free space
+Test 06: 113, d11, free space
+
+Real: 97
+Chamber 01: 84, d13, chamber
+Chamber 02: 85, d12, chamber
+Chamber 03: 84, d13, chamber
+Chamber 04: 85, d12, chamber 
+
+Real: 731.52 cm
+Hallway 03: 780, d48.48, hallway
+Hallway 04: 776, d44.48, hallway
+
+Real 97
+Hallway_97_01: 93, d4, hallway
+Hallway_97_02: 92, d3, hallway
+
+
+Real: 236.22
+Galaxy_02: 2.24, d12, galaxy room
+Galaxy_03: 2.24, d12, galaxy room 
+
+Real: 198.12
+Galaxy_04: 188, d10, galaxy room 
+
+Real: 127
+Galaxy_att_03: 142, d13, galaxy room, trashcan, direct path killed?
+Galaxy_att_04: 142, d13, galaxy room, charita
+Galaxy_att_04_los_retest: 116, d11, galaxy room, los
+
+Real: 254
+Galaxy_att_07: 263, d9, galaxy room, charita
+
+Real: 381
+Galaxy_att_08: 377, d3, galaxy room, charita
+
+ 
+
+
+
+
+-d12
+127, 142, d+13... d25
+
+254, 263, d+9... d21
+
+381, 377, d-3.... d15
