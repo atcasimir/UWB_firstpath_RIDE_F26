@@ -1,0 +1,9 @@
+Real distance: 136cm
+Calibration delay: -12cm
+
+Trial_01
+Attenuators: 3 pads
+Trials: 10
+Mean reported distance: 148cm
+Delta: 12cm
+

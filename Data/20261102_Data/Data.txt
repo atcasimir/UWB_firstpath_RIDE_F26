@@ -1,0 +1,11 @@
+Pole: 39cmx39cm
+122cm
+
+Pole_02_122cm_plots:
+Reported mean: 140cm
+Delta: +18cm
+
+Stone_Pole_01_plots:
+142cm
+Reported mean: 225cm
+Delta: 
