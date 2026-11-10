@@ -62,7 +62,8 @@ static void MX_USART2_UART_Init(void);
 
 //int rx_diagnostics(void);
 //int rx_test_run(void);
-int rx_twr_test(void);
+//int rx_twr_test(void);
+void uwb_app_run(void); /* 3-CIR capture firmware, see Functions/uwb_app.c */
 //int simple_tx(void);
 //int tx_twr_test(void);
 /*! ------------------------------------------------------------------------------------------------------------------
@@ -129,7 +130,8 @@ int main(void)
 
   //rx_diagnostics();
   //rx_test_run();
-  rx_twr_test();
+  //rx_twr_test();
+  uwb_app_run(); /* never returns; role (tx/rx) is chosen from python/uwb_tool.py */
   //simple_tx();
   //tx_twr_test();
   /* USER CODE END 2 */

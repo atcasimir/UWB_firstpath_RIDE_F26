@@ -75,7 +75,6 @@ static uint32_t status_reg = 0;
 // Delay between frames, in UWB microseconds. See NOTE 4 below.
 // This is the delay from Frame RX timestamp to TX reply timestamp used for calculating/setting the DW IC's delayed TX function.
 // This includes the frame length of approximately 190 us with above configuration.
-
 // 1 UUS is 512 / 499.2e6 us = 1.026 us
 
 // May need to change... But generally longer is okay.
@@ -263,7 +262,7 @@ int rx_twr_test(void)
     uint32_t ranging_samples = 0;
 
     /* Loop forever responding to ranging requests. */
-    while (measurement_counter < 10 )
+    while (measurement_counter < 100 )
     {
 
         memset(&rx_diag, 0, sizeof(rx_diag));

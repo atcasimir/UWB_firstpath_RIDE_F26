@@ -1,0 +1,37 @@
+{
+  "port": "COM5",
+  "baud": 1000000,
+  "role": "responder",
+  "data_dir": "C:\\Qorvo\\F401RE\\python\\data",
+  "distance_m": 1.0,
+  "group": "Test",
+  "condition": "LOS",
+  "notes": "Just testing in room",
+  "count": 100,
+  "advanced": {
+    "interval_ms": 0,
+    "cir_start": 0,
+    "cir_len": 0,
+    "resp_delay_us": 0,
+    "final_delay_us": 0,
+    "idle_timeout_s": 30,
+    "dump_failed": false,
+    "radio": {
+      "chan": 9,
+      "preamble_len": 128,
+      "pac": 8,
+      "tx_code": 9,
+      "rx_code": 9,
+      "sfd_type": 1,
+      "data_rate": "6M8",
+      "sfd_timeout": 0,
+      "pg_delay": 0,
+      "tx_power": 0,
+      "tx_ant_dly": 16385,
+      "rx_ant_dly": 16385
+    }
+  },
+  "gui_repeat": false,
+  "responder_count": 500,
+  "gui_setup": "S001"
+}

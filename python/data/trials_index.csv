@@ -1,0 +1,2 @@
+started,trial_id,role,file,group,condition,distance_m,n_ok,n_failed,mean_m,std_m,bias_m,n_flagged,end
+2026-11-09T23:03:39-06:00,B76ACE6A,responder,S001_Testing_p1_001_responder.json,S001 Testing,LOS,1.0,500,1,0.8631,0.0181,-0.1369,1,done

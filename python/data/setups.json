@@ -1,0 +1,22 @@
+{
+ "format": "uwb-setups",
+ "next_id": 2,
+ "last_setup": "S001",
+ "setups": [
+  {
+   "name": "Testing",
+   "site": "Room",
+   "distance_m": 1.0,
+   "condition": "LOS",
+   "obstruction": "Nothing",
+   "orientation": "Nothing",
+   "antenna_height_m": 1.0,
+   "notes": "Nothing",
+   "id": "S001",
+   "placement": 1,
+   "trials": 1,
+   "created": "2026-11-09T23:03:30-06:00",
+   "trials_this_placement": 1
+  }
+ ]
+}
