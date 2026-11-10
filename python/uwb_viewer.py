@@ -27,6 +27,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import uwb_analyze as ua
+import uwb_platform as up
 import uwb_setups as us
 
 KINDS = ua.KINDS
@@ -124,9 +125,9 @@ def draw_panel(cv, box, xs, series, vlines, title, note="", xlabel=""):
     vlines = [(x, colour, dash)]."""
     x0, y0, x1, y1 = box
     left, right, top, bottom = x0 + 58, x1 - 10, y0 + 22, y1 - 30
-    cv.create_text(x0 + 58, y0 + 9, text=title, anchor="w", fill=INK, font=("Segoe UI", 9, "bold"))
+    cv.create_text(x0 + 58, y0 + 9, text=title, anchor="w", fill=INK, font=up.ui(-1, True))
     if note:
-        cv.create_text(right, y0 + 9, text=note, anchor="e", fill=QUIET, font=("Segoe UI", 8))
+        cv.create_text(right, y0 + 9, text=note, anchor="e", fill=QUIET, font=up.ui(-2))
     if not xs or right - left < 20 or bottom - top < 20:
         cv.create_rectangle(left, top, right, bottom, outline=GRID)
         if not xs:
@@ -150,13 +151,13 @@ def draw_panel(cv, box, xs, series, vlines, title, note="", xlabel=""):
 
     for t in nice_ticks(ymin, ymax, 4):
         cv.create_line(left, py(t), right, py(t), fill=GRID)
-        cv.create_text(left - 5, py(t), text="%g" % t, anchor="e", fill=QUIET, font=("Segoe UI", 8))
+        cv.create_text(left - 5, py(t), text="%g" % t, anchor="e", fill=QUIET, font=up.ui(-2))
     for t in nice_ticks(xmin, xmax, 6):
         cv.create_line(px(t), top, px(t), bottom, fill=GRID)
-        cv.create_text(px(t), bottom + 9, text="%g" % t, fill=QUIET, font=("Segoe UI", 8))
+        cv.create_text(px(t), bottom + 9, text="%g" % t, fill=QUIET, font=up.ui(-2))
     cv.create_rectangle(left, top, right, bottom, outline="#b9c0cc")
     if xlabel:
-        cv.create_text((left + right) / 2, bottom + 22, text=xlabel, fill=QUIET, font=("Segoe UI", 8))
+        cv.create_text((left + right) / 2, bottom + 22, text=xlabel, fill=QUIET, font=up.ui(-2))
     for values, colour, width in series:
         pts = []
         for x, v in zip(xs, values):
@@ -191,7 +192,7 @@ def draw_exchange(cv, width, height, panels):
         note = "peak - first path: %.2f samples = %.2f ns" % (p["gap"], p["gap_ns"])
         draw_panel(cv, bot_box, xs[a:b], [(p["i"][a:b], ORANGE, 1), (p["q"][a:b], PURPLE, 1), (p["mag"][a:b], BLUE, 2)],
                    lines, "around the first path", note, "accumulator sample (about 1 ns each)")
-    cv.create_text(8, height - 8, anchor="w", fill=QUIET, font=("Segoe UI", 8),
+    cv.create_text(8, height - 8, anchor="w", fill=QUIET, font=up.ui(-2),
                    text="blue |I + jQ|    orange I    purple Q    red dashed = chip's first path    green dotted = peak")
 
 
@@ -225,18 +226,18 @@ class CirViewer:
         cb = ttk.Combobox(bar, textvariable=self.v_mode, values=MODES, state="readonly", width=42)
         cb.grid(row=0, column=7)
         cb.bind("<<ComboboxSelected>>", lambda ev: self.set_mode(MODES.index(self.v_mode.get())))
-        ttk.Label(bar, text="   Left / Right arrow keys also step", foreground="#555").grid(row=0, column=8)
+        ttk.Label(bar, text="   Left / Right arrow keys also step", foreground=up.HINT).grid(row=0, column=8)
 
         info = ttk.Frame(self.win, padding=(8, 0, 8, 4))
         info.grid(row=1, column=0, sticky="ew")
         self.v_head = tk.StringVar()
-        ttk.Label(info, textvariable=self.v_head, font=("Segoe UI", 11, "bold")).grid(row=0, column=0, sticky="w")
+        ttk.Label(info, textvariable=self.v_head, font=up.ui(1, True)).grid(row=0, column=0, sticky="w")
         self.v_why = tk.StringVar()
         self.l_why = ttk.Label(info, textvariable=self.v_why, wraplength=1500, justify="left")
         self.l_why.grid(row=1, column=0, sticky="w")
         self.v_trial = tk.StringVar(value="%s   |   %d exchanges with CIRs, %d suspect, %d flagged" % (
             us.setup_title(self.view.meta), len(self.view.all_ids), len(self.view.suspect), len(self.view.flag_why)))
-        ttk.Label(info, textvariable=self.v_trial, foreground="#555").grid(row=2, column=0, sticky="w")
+        ttk.Label(info, textvariable=self.v_trial, foreground=up.HINT).grid(row=2, column=0, sticky="w")
 
         self.cv = tk.Canvas(self.win, background="white", highlightthickness=0)
         self.cv.grid(row=2, column=0, sticky="nsew")

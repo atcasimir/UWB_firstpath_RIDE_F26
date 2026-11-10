@@ -23,12 +23,19 @@ CIRs. "Import other PC's files" joins them into one file with all three.
 # 2. First-time setup
 
 1. Flash both boards with the firmware from STM32CubeIDE (same firmware on both).
-2. On both PCs:   pip install pyserial numpy matplotlib
-3. Copy the whole "python" folder to the initiator PC.
-4. Main PC: double-click "UWB Capture.bat".   Initiator PC: "UWB Initiator.bat".
+2. On both computers install the Python packages:
+       Windows:   pip install pyserial numpy matplotlib
+       Mac:       python3 -m pip install pyserial numpy matplotlib
+3. Copy the whole "python" folder to the initiator's computer.
+4. Start the windows:
+       Windows:   double-click "UWB Capture.bat"     /  "UWB Initiator.bat"
+       Mac:       double-click "UWB Capture.command" /  "UWB Initiator.command"
+   The two computers do not have to be the same kind. A trial recorded on a Mac
+   merges with one recorded on Windows, and the other way round.
 
-A black console window opens next to each window. Leave it open; if something goes
-wrong at start-up, the reason is printed there.
+A console window (Windows) or a Terminal window (Mac) opens next to each window.
+Leave it open; if something goes wrong at start-up, the reason is printed there.
+Mac users: see section 13 for the one-time steps.
 
 
 # 3. A normal session, step by step
@@ -60,7 +67,8 @@ At the end: copy the initiator PC's data folder to a USB stick and press
 # 4. The main window, button by button
 
 Box 1 - Responder board
-  COM port       The board's serial port. ST-LINK ports are listed first.
+  COM port       The board's serial port (called "Serial port" on a Mac, where it
+                 looks like /dev/cu.usbmodem1103). ST-LINK ports are listed first.
   Refresh        Re-reads the list after plugging a board in.
   Baud rate      Speed of the USB link. 1000000 is fastest. If you see serial
                  errors or it will not connect, use 460800 or 115200.
@@ -87,13 +95,19 @@ Box 4 - Run
 Saved trials (right side) - "Selected trial" buttons need a file selected in the list
   Analyze + report     Readable summary in the Output box, and a report file you can
                        send to someone (section 7).
-  Plot suspect CIRs    A PDF with ONLY the exchanges where the chip's first path is most
+  View CIRs            Opens a viewer on the selected trial. No waiting and no file:
+                       each exchange is drawn at once. Previous / Next or the Left /
+                       Right arrow keys step through; "Go to exchange" jumps; "Show"
+                       narrows to the suspect or the flagged exchanges (suspects come
+                       most suspicious first). Use this for looking; use the PDFs
+                       for sending.
+  Suspect CIRs to PDF  A PDF with ONLY the exchanges where the chip's first path is most
                        likely not the direct path, most suspicious first. Page 1 lists
                        them with the reason for each. "At most N exchanges" (next row)
                        caps how many are drawn. See section 8.
-  Plot all CIRs        A PDF, one page per exchange, showing poll, response and final.
-                       Takes about half a second per exchange.
-  Plot overview        One picture: all CIRs overlaid, and range per exchange.
+  All CIRs to PDF      A PDF, one page per exchange, showing poll, response and final.
+                       Takes about a third of a second per exchange.
+  Overview picture     One picture: all CIRs overlaid, and range per exchange.
   Compare its setup    All trials of the same setup side by side (section 7).
   Calibrate            Antenna delay calibration from the selected trials (section 9).
                        With nothing selected it shows the calibration in use.
@@ -245,7 +259,10 @@ FAILED exchanges did not complete, so they have no range:
 A few are normal, more so with blockage. Many in clean line of sight means
 something is wrong (distance too large, boards not facing, wrong channel).
 
-FLAGGED exchanges completed but look unlike the rest of their trial:
+FLAGGED exchanges completed but look unlike the rest of their trial.
+Each message type is judged only against its own kind: a final's CIR is compared
+with the other finals of the trial, never with polls or responses. The one rule
+that uses the whole exchange is the range.
   range ... is +0.31 m from the trial median      an outlier in range
   chip first-path warning                         the chip doubted its own estimate
   first path N samples before the peak (likely NLOS)
@@ -254,9 +271,9 @@ FLAGGED exchanges completed but look unlike the rest of their trial:
   energy before the reported first path           something arrived even earlier
   CIR shape unlike the rest of the trial
   first path N dB below total power
-Flags are hints for a closer look (Plot all CIRs marks them in red), not verdicts.
+Flags are hints for a closer look (the viewer and the CIR PDFs show the reasons), not verdicts.
 
-SUSPECT exchanges (Plot suspect CIRs) are picked for one question only: is the
+SUSPECT exchanges (the viewer's "Suspect only", and Suspect CIRs to PDF) are picked for one question only: is the
 chip's first path really the direct path? Each sign adds to a score, and the
 highest scores are plotted first:
   range far from the rest of the trial   too long = a later path taken as the first;
@@ -374,7 +391,44 @@ Many failed exchanges in clean line of sight
 "The fast CIR read did not match"
     Do not trust that trial's CIRs. Report it; the SPI speed needs lowering.
 A window looks broken or a button prints ERROR
-    Copy the text from the Output box or the black console window and report it.
+    Copy the text from the Output box or the console / Terminal window and report it.
+
+
+# 13. On a Mac
+
+Everything works the same as on Windows; only starting it is different.
+
+ONE-TIME SETUP
+  1. Install Python from python.org. Do not rely on the Python that comes with macOS:
+     its window toolkit is too old and shows blank windows. (With Homebrew Python,
+     also run:  brew install python-tk)
+  2. In Terminal:   python3 -m pip install pyserial numpy matplotlib
+  3. The first time, right-click "UWB Capture.command", choose Open, and confirm.
+     macOS asks this once for a file that came from another computer.
+
+IF DOUBLE-CLICKING DOES NOT START IT
+  "...cannot be opened" or it opens in a text editor: the file lost its "program"
+  mark on the way over (this happens with zip files and some USB sticks).
+  In Terminal:
+        cd  (drag the python folder onto the Terminal window)  and press Return
+        chmod +x *.command
+  Or skip the launcher altogether:
+        python3 uwb_gui.py              the main window
+        python3 uwb_gui_initiator.py    the initiator window
+
+THE SERIAL PORT
+  It is listed as /dev/cu.usbmodem followed by digits, with the ST-LINK first. The
+  digits change with the USB socket used. The Mac's own Bluetooth port is hidden.
+  If no usbmodem port appears: try another cable (many are charge-only) and press
+  Refresh.
+
+SPEED
+  1000000 baud is tried first. If the board does not answer after the switch, choose
+  460800 or 115200.
+
+QUITTING
+  Cmd+Q, or the red button, stops a running trial and releases the port.
+  "Open folder" opens Finder; reports, plots and PDFs open in the Mac's own viewers.
 """
 
 
@@ -401,6 +455,8 @@ that the initiator receives (the "response" CIR).
   3. Leave it running. Every trial started on the main PC is served automatically;
      trial length and what is being measured are decided there.
   4. Stop ends it. Release port lets another program use the board.
+On a Mac, start this window with "UWB Initiator.command" (first time: right-click,
+Open). The port is listed as /dev/cu.usbmodem followed by digits.
 
 After the session: press "Open folder", copy the initiator_....json files to a USB
 stick, and use "Import other PC's files..." in the main window. That produces the

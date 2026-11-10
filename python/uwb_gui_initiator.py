@@ -2,7 +2,8 @@
 """
 uwb_gui_initiator.py - the small window for the PC of the INITIATOR board.
 
-    Start it by double-clicking "UWB Initiator.bat"      (or: python uwb_gui_initiator.py)
+    Windows: double-click "UWB Initiator.bat"      Mac: double-click "UWB Initiator.command"
+    (or, on either:  python uwb_gui_initiator.py   /   python3 uwb_gui_initiator.py)
 
 Choose the COM port and press Start once. From then on the board keeps calling the
 main (responder) board and serves every trial that is started there: the trial length
@@ -30,6 +31,7 @@ if HERE not in sys.path:
 
 import uwb_gui as base
 import uwb_help
+import uwb_platform as up
 import uwb_tool as ut
 
 TITLE = "UWB initiator"
@@ -80,7 +82,7 @@ class InitiatorApp(base.BaseApp):
         box.columnconfigure(1, weight=1)
         ttk.Label(box, text="Data folder").grid(row=0, column=0, sticky="w")
         self.v_dir = tk.StringVar(value=self.data_dir)
-        ttk.Label(box, textvariable=self.v_dir, foreground="#333").grid(row=0, column=1, sticky="w", padx=6)
+        ttk.Label(box, textvariable=self.v_dir, foreground=up.SOFT).grid(row=0, column=1, sticky="w", padx=6)
         self.b_dir = ttk.Button(box, text="Change...", command=self.browse_dir)
         self.b_dir.grid(row=0, column=2)
         ttk.Button(box, text="Open folder", command=self.open_folder).grid(row=0, column=3, padx=(4, 0))
@@ -89,13 +91,15 @@ class InitiatorApp(base.BaseApp):
         self.build_run_box(main, "2. Run", "Start").grid(row=3, column=0, sticky="ew", pady=(8, 0))
         self.build_output_box(main, height=12).grid(row=4, column=0, sticky="nsew", pady=(8, 0))
         ttk.Label(main, text="Press Start once and leave it running. Trials are started and stopped on the main PC.\n"
-                             "Afterwards copy the data folder to a USB stick for the main PC.", foreground="#555",
+                             "Afterwards copy the data folder to a USB stick for the main PC.", foreground=up.HINT,
                   justify="left").grid(row=5, column=0, sticky="w", pady=(6, 0))
         ttk.Button(main, text="Help", command=self.show_help).grid(row=6, column=0, sticky="e", pady=(4, 0))
 
         self.refresh_ports()
         self.set_state()
         root.protocol("WM_DELETE_WINDOW", self.on_close)
+        if up.IS_MAC:
+            root.createcommand("tk::mac::Quit", self.on_close)   # Cmd+Q: stop, release the port
         root.after(80, self.pump)
         if ut.serial is None:
             self.log("pyserial is not installed, so no board can be reached. Fix with:  pip install pyserial")
@@ -109,7 +113,7 @@ class InitiatorApp(base.BaseApp):
     def open_folder(self):
         try:
             os.makedirs(self.data_dir, exist_ok=True)
-            os.startfile(self.data_dir)  # Windows
+            up.open_path(self.data_dir)
         except Exception as exc:
             self.log("Could not open %s: %s" % (self.data_dir, exc))
 
@@ -163,10 +167,7 @@ class InitiatorApp(base.BaseApp):
 
 def main():
     root = tk.Tk()
-    try:
-        ttk.Style().theme_use("vista")
-    except Exception:
-        pass
+    up.use_native_theme(ttk)
     InitiatorApp(root)
     root.mainloop()
 

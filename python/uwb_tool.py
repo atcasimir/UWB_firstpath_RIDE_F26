@@ -1002,7 +1002,7 @@ def estimate_rate(settings):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Run 3-CIR DS-TWR trials and save them as JSON.")
-    ap.add_argument("--port", help="serial port, e.g. COM6")
+    ap.add_argument("--port", help="serial port, e.g. COM6 (Windows) or /dev/cu.usbmodem1103 (Mac)")
     ap.add_argument("--baud", type=int, help="baud rate for the data link (default 1000000)")
     ap.add_argument("--role", type=parse_role, help="initiator (tx) or responder (rx)")
     ap.add_argument("--distance", type=float, help="real distance in metres")

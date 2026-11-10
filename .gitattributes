@@ -1,2 +1,4 @@
 DW3_QM33_SDK_1/SDK/Tools/GUI/** filter=lfs diff=lfs merge=lfs -text
 DW3_QM33_SDK_1/SDK/Firmware/** filter=lfs diff=lfs merge=lfs -text
+# Mac launchers are shell scripts: they must keep Unix line endings or macOS cannot run them
+*.command text eol=lf

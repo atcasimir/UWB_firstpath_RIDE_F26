@@ -1085,17 +1085,54 @@ def plot_cirs(path, out=None, window=(-25, 90), progress=None, only=None, limit=
                              fontsize=8.5, family="monospace")
                 pdf.savefig(fig, dpi=90)
                 plt.close(fig)
+        # One figure for the whole file: the axes, lines and labels are made once and only
+        # their data is replaced for each page. Building six new axes per page was what made
+        # this slow (about 0.5 s a page); this way it is several times faster.
+        fig, axes = plt.subplots(2, 3, figsize=(16.5, 8.2))
+        art = {}
+        for col, kind in enumerate(KINDS):
+            top, bot = axes[0][col], axes[1][col]
+            who = "initiator" if kind == "response" else "responder"
+            top.set_title("%s   (received by the %s)" % (kind, who))
+            top.set_xlabel("accumulator sample (about 1 ns each)")
+            top.set_ylabel("|I + jQ|")
+            bot.set_xlabel("accumulator sample")
+            bot.set_ylabel("amplitude")
+            bot.title.set_fontsize(9)
+            for ax in (top, bot):
+                ax.grid(alpha=0.25)
+            art[kind] = {
+                "top": top, "bot": bot,
+                "t_mag": top.plot([], [], color="tab:blue", linewidth=0.7)[0],
+                "t_fp": top.axvline(0, color="tab:red", linestyle="--", linewidth=0.9),
+                "t_pk": top.axvline(0, color="tab:green", linestyle=":", linewidth=0.9),
+                "t_txt": top.text(0.98, 0.96, "", transform=top.transAxes, ha="right", va="top", fontsize=8,
+                                  bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8, "edgecolor": "0.8"}),
+                "b_i": bot.plot([], [], color="tab:orange", linewidth=0.8, label="I")[0],
+                "b_q": bot.plot([], [], color="tab:purple", linewidth=0.8, label="Q")[0],
+                "b_mag": bot.plot([], [], color="tab:blue", linewidth=1.3, marker=".", markersize=3, label="|I + jQ|")[0],
+                "b_fp": bot.axvline(0, color="tab:red", linestyle="--", linewidth=0.9, label="chip first path"),
+                "b_pk": bot.axvline(0, color="tab:green", linestyle=":", linewidth=0.9, label="peak"),
+                "none_t": top.text(0.5, 0.5, "no %s CIR in this file" % kind, ha="center", va="center",
+                                   transform=top.transAxes, color="gray", visible=False),
+                "none_b": bot.text(0.5, 0.5, "no %s CIR in this file" % kind, ha="center", va="center",
+                                   transform=bot.transAxes, color="gray", visible=False),
+            }
+            bot.legend(fontsize="x-small", loc="upper right")
+        title = fig.suptitle("", fontsize=10)
+        fig.tight_layout(rect=(0, 0, 1, 0.89))
+        import textwrap
+
         for n, e in enumerate(exchanges):
-            fig, axes = plt.subplots(2, 3, figsize=(16.5, 8.2))
-            for col, kind in enumerate(KINDS):
-                top, bot = axes[0][col], axes[1][col]
-                if kind not in e:
-                    for ax in (top, bot):
-                        ax.text(0.5, 0.5, "no %s CIR in this file" % kind, ha="center", va="center",
-                                transform=ax.transAxes, color="gray")
-                        ax.set_xticks([])
-                        ax.set_yticks([])
-                    top.set_title(kind)
+            for kind in KINDS:
+                A = art[kind]
+                have = kind in e
+                for key in ("t_mag", "t_fp", "t_pk", "t_txt", "b_i", "b_q", "b_mag", "b_fp", "b_pk"):
+                    A[key].set_visible(have)
+                A["none_t"].set_visible(not have)
+                A["none_b"].set_visible(not have)
+                if not have:
+                    A["bot"].set_title("")
                     continue
                 rec = e[kind]
                 i = np.asarray(rec["cir"]["i"], dtype=float)
@@ -1105,35 +1142,37 @@ def plot_cirs(path, out=None, window=(-25, 90), progress=None, only=None, limit=
                 x = np.arange(start, start + mag.size)
                 d = rec["diag"]
                 fp, pk = d["fp_index"], d["peak_index"]
+                top_y = float(mag.max()) if mag.size else 1.0
 
-                top.plot(x, mag, color="tab:blue", linewidth=0.7)
-                top.axvline(fp, color="tab:red", linestyle="--", linewidth=0.9, label="chip first path %.2f" % fp)
-                top.axvline(pk, color="tab:green", linestyle=":", linewidth=0.9, label="peak %d" % pk)
-                top.set(title="%s   (received by the %s)" % (kind, "initiator" if kind == "response" else "responder"),
-                        xlabel="accumulator sample (about 1 ns each)", ylabel="|I + jQ|")
-                top.legend(fontsize="x-small", loc="upper right")
-                top.grid(alpha=0.25)
+                A["t_mag"].set_data(x, mag)
+                A["t_fp"].set_xdata([fp, fp])
+                A["t_pk"].set_xdata([pk, pk])
+                A["t_txt"].set_text("chip first path %.2f   peak %d\npeak - first path %.2f samples = %.2f ns"
+                                    % (fp, pk, pk - fp, (pk - fp) * SAMPLE_NS))
+                A["top"].set_xlim(start - 10, start + mag.size + 10)
+                A["top"].set_ylim(-0.03 * top_y, 1.12 * top_y)
 
                 lo = max(start, int(math.floor(fp)) + window[0])
                 hi = min(start + mag.size, int(math.floor(fp)) + window[1])
                 if hi <= lo:
                     lo, hi = start, start + mag.size
                 sl = slice(lo - start, hi - start)
-                bot.plot(x[sl], i[sl], color="tab:orange", linewidth=0.8, label="I")
-                bot.plot(x[sl], q[sl], color="tab:purple", linewidth=0.8, label="Q")
-                bot.plot(x[sl], mag[sl], color="tab:blue", linewidth=1.3, marker=".", markersize=3, label="|I + jQ|")
-                bot.axvline(fp, color="tab:red", linestyle="--", linewidth=0.9)
-                bot.axvline(pk, color="tab:green", linestyle=":", linewidth=0.9)
+                A["b_i"].set_data(x[sl], i[sl])
+                A["b_q"].set_data(x[sl], q[sl])
+                A["b_mag"].set_data(x[sl], mag[sl])
+                A["b_fp"].set_xdata([fp, fp])
+                A["b_pk"].set_xdata([pk, pk])
+                ymin = float(min(i[sl].min(), q[sl].min(), 0.0)) if mag[sl].size else -1.0
+                ymax = float(mag[sl].max()) if mag[sl].size else 1.0
+                pad = 0.06 * max(ymax - ymin, 1.0)
+                A["bot"].set_xlim(lo - 1, hi)
+                A["bot"].set_ylim(ymin - pad, ymax + 3 * pad)
                 extra = []
                 if d.get("fp_power_dbm") is not None and d.get("rx_power_dbm") is not None:
                     extra.append("first path %.1f dBm, total %.1f dBm" % (d["fp_power_dbm"], d["rx_power_dbm"]))
                 if d.get("status_flags"):
                     extra.append("chip: " + ", ".join(d["status_flags"]))
-                bot.set(title="around the first path" + ("   " + "; ".join(extra) if extra else ""),
-                        xlabel="accumulator sample", ylabel="amplitude")
-                bot.title.set_fontsize(9)
-                bot.legend(fontsize="x-small", loc="upper right")
-                bot.grid(alpha=0.25)
+                A["bot"].set_title("around the first path" + ("   " + "; ".join(extra) if extra else ""), fontsize=9)
 
             line = "exchange %d   status %s" % (e["xid"], e.get("status"))
             if e.get("range_m") is not None:
@@ -1142,15 +1181,14 @@ def plot_cirs(path, out=None, window=(-25, 90), progress=None, only=None, limit=
                     line += "  (real %.3f m, error %+.3f m" % (meta["distance_m"], e["range_m"] - meta["distance_m"])
                     line += (", calibrated %+.3f m)" % (e["range_m"] - cal - meta["distance_m"])) if cal is not None else ")"
             if e["xid"] in why:
-                import textwrap
                 label = "WHY IT WAS PICKED" if picked is not None else "FLAGGED"
                 line += "\n" + "\n".join(textwrap.wrap("%s: %s" % (label, why[e["xid"]]), 190)[:3])
-            fig.suptitle(head + "\n" + line, fontsize=10, color="tab:red" if e["xid"] in why else "black")
-            fig.tight_layout(rect=(0, 0, 1, 0.93 - 0.02 * max(0, line.count("\n") - 1)))
+            title.set_text(head + "\n" + line)
+            title.set_color("tab:red" if e["xid"] in why else "black")
             pdf.savefig(fig, dpi=90)
-            plt.close(fig)
-            if progress and (n + 1) % 20 == 0:
+            if progress and (n + 1) % 50 == 0:
                 progress("  %d of %d pages" % (n + 1, len(exchanges)))
+        plt.close(fig)
     return out
 
 

@@ -3,7 +3,8 @@
 uwb_gui.py - the MAIN window: runs on the PC of the responder board. Everything about a
 trial is decided here (setup, number of exchanges), and all analysis is done here.
 
-    Start it by double-clicking "UWB Capture.bat"        (or: python uwb_gui.py)
+    Windows: double-click "UWB Capture.bat"        Mac: double-click "UWB Capture.command"
+    (or, on either:  python uwb_gui.py   /   python3 uwb_gui.py)
 
 The other board (the initiator) only needs "UWB Initiator.bat" on its PC: choose the
 port, press Start once, and it serves every trial started from this window. Its files
@@ -37,6 +38,7 @@ if HERE not in sys.path:
 
 import uwb_calib as uc
 import uwb_help
+import uwb_platform as up
 import uwb_run as ur
 import uwb_setups as us
 import uwb_tool as ut
@@ -52,8 +54,10 @@ def port_choices():
     if ut.list_ports is None:
         return items
     for p in ut.list_ports.comports():
-        stlink = "STLink" in (p.description or "") or "STMicro" in (p.manufacturer or "")
-        items.append((0 if stlink else 1, "%s   %s" % (p.device, p.description or ""), p.device))
+        if not up.is_board_port(p):
+            continue                     # e.g. the Mac's own Bluetooth port
+        description = p.description if (p.description and p.description != "n/a") else ""
+        items.append((0 if up.is_stlink(p) else 1, "%s   %s" % (p.device, description), p.device))
     items.sort()
     return [(label, dev) for _, label, dev in items]
 
@@ -76,7 +80,7 @@ class BaseApp:
     def build_board_box(self, parent, title):
         box = ttk.LabelFrame(parent, text=title, padding=8)
         box.columnconfigure(1, weight=1)
-        ttk.Label(box, text="COM port").grid(row=0, column=0, sticky="w")
+        ttk.Label(box, text="COM port" if up.IS_WINDOWS else "Serial port").grid(row=0, column=0, sticky="w")
         self.v_port = tk.StringVar(value=self.settings.get("port", ""))
         self.cb_port = ttk.Combobox(box, textvariable=self.v_port, width=40)
         self.cb_port.grid(row=0, column=1, sticky="ew", padx=4)
@@ -89,7 +93,7 @@ class BaseApp:
         self.b_release = ttk.Button(box, text="Release port", command=self.release_port)
         self.b_release.grid(row=1, column=2, pady=(4, 0))
         self.v_conn = tk.StringVar(value="Not connected")
-        ttk.Label(box, textvariable=self.v_conn, foreground="#555").grid(row=2, column=0, columnspan=3, sticky="w",
+        ttk.Label(box, textvariable=self.v_conn, foreground=up.HINT).grid(row=2, column=0, columnspan=3, sticky="w",
                                                                          pady=(4, 0))
         self.lock_widgets += [self.cb_port, self.cb_baud, self.b_ports]
         return box
@@ -102,7 +106,7 @@ class BaseApp:
         self.b_stop = ttk.Button(box, text="Stop", command=self.stop)
         self.b_stop.grid(row=0, column=1, padx=6, ipadx=10, ipady=4)
         self.v_status = tk.StringVar(value="Idle")
-        ttk.Label(box, textvariable=self.v_status, font=("Segoe UI", 10, "bold"), wraplength=340,
+        ttk.Label(box, textvariable=self.v_status, font=up.ui(0, True), wraplength=340,
                   justify="left").grid(row=0, column=2, sticky="w", padx=6)
         self.bar = ttk.Progressbar(box, mode="determinate", maximum=100)
         self.bar.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(8, 2))
@@ -116,7 +120,7 @@ class BaseApp:
         box = ttk.LabelFrame(parent, text="Output", padding=4)
         box.columnconfigure(0, weight=1)
         box.rowconfigure(0, weight=1)
-        self.txt = tk.Text(box, wrap="none", height=height, font=("Consolas", 9), state="disabled")
+        self.txt = tk.Text(box, wrap="none", height=height, font=up.mono(), state="disabled")
         self.txt.grid(row=0, column=0, sticky="nsew")
         sy = ttk.Scrollbar(box, orient="vertical", command=self.txt.yview)
         sy.grid(row=0, column=1, sticky="ns")
@@ -143,12 +147,12 @@ class BaseApp:
         frame.grid(row=0, column=1, sticky="nsew", padx=(0, 8), pady=8)
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(0, weight=1)
-        txt = tk.Text(frame, wrap="none", font=("Consolas", 10), padx=10, pady=8)
+        txt = tk.Text(frame, wrap="none", font=up.mono(1), padx=10, pady=8)
         txt.grid(row=0, column=0, sticky="nsew")
         sy = ttk.Scrollbar(frame, orient="vertical", command=txt.yview)
         sy.grid(row=0, column=1, sticky="ns")
         txt.configure(yscrollcommand=sy.set)
-        txt.tag_configure("title", font=("Segoe UI", 13, "bold"), spacing1=14, spacing3=6)
+        txt.tag_configure("title", font=up.ui(3, True), spacing1=14, spacing3=6)
         for k, (title, lines) in enumerate(parts):
             lb.insert("end", title)
             txt.mark_set("sec%d" % k, "end-1c")
@@ -199,7 +203,7 @@ class BaseApp:
     def read_board_fields(self):
         """Returns an error text or None."""
         if not self.port():
-            return "Choose the board's COM port."
+            return "Choose the board's serial port (for example %s)." % up.PORT_EXAMPLE
         try:
             baud = int(self.v_baud.get())
         except ValueError:
@@ -368,6 +372,8 @@ class MainApp(BaseApp):
         self.refresh_files()
         self.set_state()
         root.protocol("WM_DELETE_WINDOW", self.on_close)
+        if up.IS_MAC:
+            root.createcommand("tk::mac::Quit", self.on_close)   # Cmd+Q: stop the trial, release the port
         root.after(80, self.pump)
         if ua is None:
             self.log("Analysis is switched off because numpy is missing. Fix with:  pip install numpy matplotlib")
@@ -408,7 +414,7 @@ class MainApp(BaseApp):
         self.b_edit = ttk.Button(bf, text="Edit...", command=lambda: self.setup_dialog("edit"))
         self.b_edit.grid(row=0, column=2)
         self.v_setup_info = tk.StringVar()
-        ttk.Label(box, textvariable=self.v_setup_info, foreground="#333", wraplength=430, justify="left").grid(
+        ttk.Label(box, textvariable=self.v_setup_info, foreground=up.SOFT, wraplength=430, justify="left").grid(
             row=2, column=0, columnspan=3, sticky="w", pady=(6, 0))
         pf = ttk.Frame(box)
         pf.grid(row=3, column=0, columnspan=3, sticky="w", pady=(6, 0))
@@ -417,7 +423,7 @@ class MainApp(BaseApp):
         self.b_moved = ttk.Button(pf, text="Boards were moved", command=self.boards_moved)
         self.b_moved.grid(row=0, column=1, padx=8)
         ttk.Label(box, text="Same setup and same placement = repeats of the same measurement.",
-                  foreground="#555").grid(row=4, column=0, columnspan=3, sticky="w")
+                  foreground=up.HINT).grid(row=4, column=0, columnspan=3, sticky="w")
         self.lock_widgets += [self.cb_setup, self.b_new, self.b_copy, self.b_edit, self.b_moved]
 
         # ---- trial
@@ -428,7 +434,7 @@ class MainApp(BaseApp):
         self.v_count = tk.StringVar(value=str(self.settings.get("responder_count", 100) or 100))
         e = ttk.Entry(box, textvariable=self.v_count, width=10)
         e.grid(row=0, column=1, sticky="w", padx=4)
-        ttk.Label(box, text="0 = until Stop", foreground="#555").grid(row=0, column=2, sticky="w")
+        ttk.Label(box, text="0 = until Stop", foreground=up.HINT).grid(row=0, column=2, sticky="w")
         ttk.Label(box, text="Notes for this trial").grid(row=1, column=0, sticky="w", pady=(4, 0))
         self.v_notes = tk.StringVar()
         e2 = ttk.Entry(box, textvariable=self.v_notes)
@@ -438,14 +444,14 @@ class MainApp(BaseApp):
         df.grid(row=2, column=1, columnspan=2, sticky="ew", padx=4, pady=(4, 0))
         df.columnconfigure(0, weight=1)
         self.v_dir = tk.StringVar(value=self.data_dir)
-        ttk.Label(df, textvariable=self.v_dir, foreground="#333").grid(row=0, column=0, sticky="w")
+        ttk.Label(df, textvariable=self.v_dir, foreground=up.SOFT).grid(row=0, column=0, sticky="w")
         self.b_dir = ttk.Button(df, text="Change...", command=self.browse_dir)
         self.b_dir.grid(row=0, column=1, padx=(4, 0))
         self.lock_widgets += [e, e2, self.b_dir]
 
         self.build_run_box(left, "4. Run", "Start trial").grid(row=3, column=0, sticky="ew", pady=(8, 0))
-        ttk.Label(left, text="The initiator PC only needs its window started once (UWB Initiator.bat).\n"
-                             "It does not matter which side is started first.", foreground="#555",
+        ttk.Label(left, text="The initiator PC only needs its window started once (%s).\n" % up.LAUNCHERS[1] +
+                             "It does not matter which side is started first.", foreground=up.HINT,
                   justify="left").grid(row=4, column=0, sticky="w", pady=(6, 0))
         ttk.Button(left, text="Help: how to use this, what the buttons do, how to read the output",
                    command=self.show_help).grid(row=5, column=0, sticky="ew", pady=(8, 0), ipady=3)
@@ -472,20 +478,21 @@ class MainApp(BaseApp):
         b1 = ttk.Frame(box)
         b1.grid(row=1, column=0, sticky="w", pady=(6, 0))
         ttk.Label(b1, text="Selected trial:", width=14).grid(row=0, column=0)
-        button(b1, "Analyze + report", self.do_report, 1)
-        button(b1, "Plot suspect CIRs", self.do_plot_suspects, 2)
-        button(b1, "Plot all CIRs", self.do_plot_cirs, 3)
-        button(b1, "Plot overview", self.do_plot, 4)
+        button(b1, "View CIRs", self.do_view, 1)
+        button(b1, "Analyze + report", self.do_report, 2)
+        button(b1, "Suspect CIRs to PDF", self.do_plot_suspects, 3)
+        button(b1, "All CIRs to PDF", self.do_plot_cirs, 4)
         b1b = ttk.Frame(box)
         b1b.grid(row=2, column=0, sticky="w", pady=(4, 0))
         ttk.Label(b1b, text="", width=14).grid(row=0, column=0)
         button(b1b, "Compare its setup", self.do_compare, 1)
         button(b1b, "Calibrate", self.do_calibrate, 2)
-        button(b1b, "Export CSV", self.do_csv, 3)
-        ttk.Label(b1b, text="   Suspect plots: at most").grid(row=0, column=4)
+        button(b1b, "Overview picture", self.do_plot, 3)
+        button(b1b, "Export CSV", self.do_csv, 4)
+        ttk.Label(b1b, text="   Suspect PDF: at most").grid(row=0, column=5)
         self.v_limit = tk.StringVar(value=str(self.settings.get("gui_suspect_limit", 40)))
-        ttk.Entry(b1b, textvariable=self.v_limit, width=5).grid(row=0, column=5, padx=4)
-        ttk.Label(b1b, text="exchanges").grid(row=0, column=6)
+        ttk.Entry(b1b, textvariable=self.v_limit, width=5).grid(row=0, column=6, padx=4)
+        ttk.Label(b1b, text="exchanges").grid(row=0, column=7)
         b2 = ttk.Frame(box)
         b2.grid(row=3, column=0, sticky="w", pady=(8, 0))
         ttk.Label(b2, text="Whole folder:", width=14).grid(row=0, column=0)
@@ -499,7 +506,7 @@ class MainApp(BaseApp):
         ttk.Label(b3, text="Filter for summary / dataset:").grid(row=0, column=0)
         self.v_filter = tk.StringVar()
         ttk.Entry(b3, textvariable=self.v_filter, width=30).grid(row=0, column=1, padx=4)
-        ttk.Label(b3, text="e.g.  site=lab condition=nlos", foreground="#555").grid(row=0, column=2)
+        ttk.Label(b3, text="e.g.  site=lab condition=nlos", foreground=up.HINT).grid(row=0, column=2)
         self.v_drop = tk.BooleanVar(value=False)
         ttk.Checkbutton(box, text="Leave flagged (abnormal) exchanges out of compare / summary",
                         variable=self.v_drop).grid(row=5, column=0, sticky="w", pady=(4, 0))
@@ -581,7 +588,7 @@ class MainApp(BaseApp):
                 if mode == "edit" else
                 "One setup = one thing you intend to measure. Anything different (distance, blockage, orientation,\n"
                 "room) is a new setup. Orientation is free text, e.g. 'facing each other' or 'responder turned 90 deg'.")
-        ttk.Label(frame, text=hint, foreground="#555", justify="left").grid(row=len(us.FIELDS), column=0, columnspan=2,
+        ttk.Label(frame, text=hint, foreground=up.HINT, justify="left").grid(row=len(us.FIELDS), column=0, columnspan=2,
                                                                          sticky="w", pady=(8, 4))
         bf = ttk.Frame(frame)
         bf.grid(row=len(us.FIELDS) + 1, column=0, columnspan=2, sticky="e", pady=(6, 0))
@@ -724,7 +731,7 @@ class MainApp(BaseApp):
     def open_folder(self):
         try:
             os.makedirs(self.data_dir, exist_ok=True)
-            os.startfile(self.data_dir)  # Windows
+            up.open_path(self.data_dir)
         except Exception as exc:
             self.log("Could not open %s: %s" % (self.data_dir, exc))
 
@@ -779,7 +786,7 @@ class MainApp(BaseApp):
             if isinstance(value, tuple) and value[0] == "open":
                 for out in value[1]:
                     try:
-                        os.startfile(out)  # Windows: opens the picture / PDF
+                        up.open_path(out)  # the picture, PDF or report, in the system's own viewer
                     except Exception:
                         pass
             self.refresh_files()
@@ -825,13 +832,32 @@ class MainApp(BaseApp):
         def work():
             outs = []
             for f in files:
-                self.log("Drawing every CIR of %s (about half a second per exchange)..." % os.path.basename(f))
+                self.log("Drawing every CIR of %s (about a third of a second per exchange; \"View CIRs\" is instant)..."
+                         % os.path.basename(f))
                 out = ua.plot_cirs(f, progress=self.log)
                 print("wrote", out, " (one page per exchange: poll, response, final)")
                 outs.append(out)
             return ("open", outs)
 
         self._run_analysis("Plot all CIRs: " + ", ".join(os.path.basename(f) for f in files), work)
+
+    def do_view(self):
+        """Open the instant CIR viewer on the selected trial (nothing is written, no waiting)."""
+        files = self._need_selection()
+        if not files:
+            return
+        if ua is None:
+            messagebox.showerror(TITLE, "The viewer needs numpy:\n  pip install numpy")
+            return
+        try:
+            import uwb_viewer
+            self.viewer = uwb_viewer.CirViewer(self.root, files[0])
+        except Exception as exc:
+            self.log("Could not open the viewer on %s: %s" % (os.path.basename(files[0]), exc))
+            self.log(traceback.format_exc())
+            return
+        if len(files) > 1:
+            self.log("The viewer shows one trial at a time: opened %s." % os.path.basename(files[0]))
 
     def do_plot_suspects(self):
         files = self._need_selection()
@@ -936,10 +962,7 @@ class MainApp(BaseApp):
 
 def main():
     root = tk.Tk()
-    try:
-        ttk.Style().theme_use("vista")
-    except Exception:
-        pass
+    up.use_native_theme(ttk)
     MainApp(root)
     root.mainloop()
 
