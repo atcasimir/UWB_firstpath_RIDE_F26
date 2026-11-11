@@ -84,6 +84,17 @@ Box 2 - What is being measured
 
 Box 3 - Trial
   Number of exchanges    How many completed exchanges to collect. 0 = until Stop.
+  Transmit power         How strongly THIS PC's board transmits. Default = full power, as
+                         before. The other choices lower it by about 3 to 29 dB (typical
+                         figures from the chip's manual, not a calibration). Each PC sets
+                         its own board, so choose the same level in the initiator window
+                         too; otherwise poll and final get weaker but the response does
+                         not (or the other way round). No reflash: the level is sent to
+                         the board at Start, and it stays selected until you change it.
+                         The trial file and the report record the level of both boards.
+                         Lower power means a weaker first path and, far enough down,
+                         failed exchanges. The range also shifts by a few centimetres
+                         with received level, so compare trials taken at the same power.
   Notes for this trial   Free text saved in the file. Cleared after each trial.
   Data folder            Where the files go. Each data folder has its own setups.
 
@@ -219,10 +230,11 @@ ANALYZE + REPORT
       peak - first    the gap between them, in samples and in nanoseconds
                       (1 sample = 1.0016 ns = 30 cm of path)
       smallest .. largest   the range of that gap over the trial
-      1 to 3 samples is a clean direct path. More than 6 means a weak early arrival
-      ahead of a stronger later one: the direct path is probably blocked. A gap that
-      jumps between two values from exchange to exchange means a reflection is
-      about as strong as the direct path.
+      1 to 3 samples is a clean direct path. More than 6 means the strongest arrival
+      is a later one: a strong reflection, or a blocked direct path. A gap that
+      jumps between two values from exchange to exchange means two arrivals are
+      about equally strong and take turns being the peak. Neither flags an exchange:
+      when it happens often, the report says so once, as a NOTE about the trial.
 
   EXCHANGES furthest from the actual distance
       the five worst single exchanges. All of them are in the report file.
@@ -259,19 +271,30 @@ FAILED exchanges did not complete, so they have no range:
 A few are normal, more so with blockage. Many in clean line of sight means
 something is wrong (distance too large, boards not facing, wrong channel).
 
-FLAGGED exchanges completed but look unlike the rest of their trial.
+FLAGGED exchanges completed but are unlike the rest of their trial.
+Two things must both be true: the value is far outside what the other exchanges
+of the same trial show, AND it is off by an amount that matters. Something every
+exchange of a trial shares (a reflection stronger than the direct path, say) is
+therefore not a flag; the report mentions it once as a NOTE about the trial.
 Each message type is judged only against its own kind: a final's CIR is compared
 with the other finals of the trial, never with polls or responses. The one rule
 that uses the whole exchange is the range.
-  range ... is +0.31 m from the trial median      an outlier in range
+  range ... is +0.31 m from the trial median      at least 10 cm off
   chip first-path warning                         the chip doubted its own estimate
-  first path N samples before the peak (likely NLOS)
-                                                  a weak early arrival, strong later one
-  first-path-to-peak distance ... (trial median ...)
-  energy before the reported first path           something arrived even earlier
-  CIR shape unlike the rest of the trial
-  first path N dB below total power
+                                                  (the only rule with no comparison)
+  first path is N samples earlier/later than usual on the rising edge
+                                                  at least 1 sample (30 cm) off; this is
+                                                  the sign of a first-path miss
+  peak is N samples after the first path (usually M in this trial)
+                                                  at least 3 samples from the usual gap
+                                                  and a one-off: a gap that keeps coming
+                                                  back is the peak hopping between two
+                                                  arrivals, which is normal for that trial
+  energy before the reported first path           at least 5 x the noise
+  CIR shape unlike the rest of the trial          similarity below 0.80
+  first path N dB below total power               at least 3 dB from the usual value
 Flags are hints for a closer look (the viewer and the CIR PDFs show the reasons), not verdicts.
+Files saved with older rules are re-judged automatically the next time they are opened.
 
 SUSPECT exchanges (the viewer's "Suspect only", and Suspect CIRs to PDF) are picked for one question only: is the
 chip's first path really the direct path? Each sign adds to a score, and the
@@ -280,12 +303,14 @@ highest scores are plotted first:
                                          too short = something ahead of the pulse
   the messages disagree on the first path
                                          poll, response and final cross the same channel
-                                         within about 20 ms, so "peak minus first path"
-                                         should be the same in all three. When one says
-                                         1 sample and another 8, at least one is wrong.
+                                         within about 20 ms, so the first path should sit
+                                         at the same spot on the rising edge in all three.
+                                         When they differ by more than a sample, at least
+                                         one is wrong.
   energy before the reported first path  an earlier arrival the chip did not pick
   the chip itself doubted its first path
-  first path far ahead of the peak       weak first path, direct path likely blocked
+  first path off the rising edge, or peak unusually far behind it
+                                         compared with the rest of the trial
   CIR shape unlike the rest of the trial
   calibrated range far from the real distance   (only once the boards are calibrated)
 A high score means "look here first", not "this one is wrong".

@@ -76,6 +76,7 @@ class InitiatorApp(base.BaseApp):
         ttk.Label(box, text="Channel (same as main PC)").grid(row=0, column=4, sticky="w", padx=(8, 0))
         e3 = ttk.Combobox(box, textvariable=self.v_chan, values=["5", "9"], width=4)
         e3.grid(row=0, column=5, padx=4)
+        self.build_power(box, 1, pady=(6, 0))
 
         box = ttk.Frame(main)
         box.grid(row=2, column=0, sticky="ew", pady=(8, 0))
@@ -142,6 +143,7 @@ class InitiatorApp(base.BaseApp):
         adv = self.settings["advanced"]
         adv["cir_start"], adv["cir_len"] = cstart, clen
         adv["radio"]["chan"] = chan
+        self.read_power()
         self.settings["count"] = 0          # the main PC decides how long a trial is
         self.save_fields()
         self.begin_run()

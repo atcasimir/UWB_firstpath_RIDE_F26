@@ -45,7 +45,7 @@ class TrialView:
         self.meta = self.trial.get("meta") or {}
         self.real = self.meta.get("distance_m")
         self.cal = ua.cal_offset(path, self.trial)
-        analysis = self.trial.get("analysis") or ua.analyze_trial(self.trial)
+        analysis = ua.analysis_of(self.trial)
         self.flag_why = {f["xid"]: f["reasons"] for f in analysis["flagged"]}
         self.suspect = ua.suspects(self.trial, self.cal)
         self.suspect_why = {s["xid"]: s for s in self.suspect}

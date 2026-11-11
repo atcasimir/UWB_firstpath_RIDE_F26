@@ -215,6 +215,25 @@ class BaseApp:
         self.settings["role"] = self.role_name
         return None
 
+    def build_power(self, parent, row, pady=(4, 0)):
+        """Transmit power of this PC's board: a label, a dropdown and a hint in grid row `row`."""
+        ttk.Label(parent, text="Transmit power").grid(row=row, column=0, sticky="w", pady=pady)
+        self.v_power = tk.StringVar(value=ut.tx_power_label(self.settings.get("tx_power_db", 0)))
+        if self.v_power.get() not in ut.tx_power_choices():
+            self.v_power.set(ut.tx_power_label(0))
+        f = ttk.Frame(parent)
+        f.grid(row=row, column=1, columnspan=5, sticky="w", padx=4, pady=pady)
+        cb = ttk.Combobox(f, textvariable=self.v_power, values=ut.tx_power_choices(), state="readonly", width=20)
+        cb.grid(row=0, column=0)
+        ttk.Label(f, text="this board only: set the same on the other PC", foreground=up.HINT).grid(
+            row=0, column=1, sticky="w", padx=6)
+        self.lock_widgets.append(cb)
+        return cb
+
+    def read_power(self):
+        self.settings["tx_power_db"] = ut.tx_power_db_from_label(self.v_power.get())
+        ut.apply_tx_power(self.settings)
+
     def release_port(self):
         if self.runner.busy:
             return
@@ -448,6 +467,7 @@ class MainApp(BaseApp):
         self.b_dir = ttk.Button(df, text="Change...", command=self.browse_dir)
         self.b_dir.grid(row=0, column=1, padx=(4, 0))
         self.lock_widgets += [e, e2, self.b_dir]
+        self.build_power(box, 3)
 
         self.build_run_box(left, "4. Run", "Start trial").grid(row=3, column=0, sticky="ew", pady=(8, 0))
         ttk.Label(left, text="The initiator PC only needs its window started once (%s).\n" % up.LAUNCHERS[1] +
@@ -653,6 +673,7 @@ class MainApp(BaseApp):
             messagebox.showerror(TITLE, err)
             return
         self.settings["responder_count"] = count
+        self.read_power()
         self.save_fields()
         meta = self.store.begin_trial(sid)
         meta["notes"] = self.v_notes.get().strip()

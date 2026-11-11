@@ -139,6 +139,83 @@ DEFAULT_SETTINGS = {
     },
 }
 
+# --------------------------------------------------------------------------------------
+# Transmit power
+# --------------------------------------------------------------------------------------
+# The chip's TX_POWER register holds one byte for each part of the frame (data, header,
+# preamble, STS). A byte is (fine gain 0..63) << 2 | coarse gain 0..3. The default is fine
+# gain 63 with coarse gain 2 on channel 9 (0xFE) and coarse gain 1 on channel 5 (0xFD).
+# The reductions below keep the default coarse gain and lower the fine gain; the dB figures
+# are read off "Typical TX power variation with coarse and fine gain" in the DW3000 User
+# Manual (figure 27, channel 9), so they are typical values, not a calibration.
+TX_POWER_STEPS = [          # (dB relative to the default, fine gain, coarse gain or None = default)
+    (0, 63, None),
+    (-3, 43, None),
+    (-6, 30, None),
+    (-9, 20, None),
+    (-12, 14, None),
+    (-15, 9, None),
+    (-18, 5, None),
+    (-21, 3, None),
+    (-26, 0, None),
+    (-29, 1, 0),            # coarse gain 0 as well: the lowest setting offered
+]
+
+
+def tx_power_label(db):
+    db = int(db or 0)
+    if db == 0:
+        return "Default (full power)"
+    return "about %d dB%s" % (db, " (lowest)" if db == TX_POWER_STEPS[-1][0] else "")
+
+
+def tx_power_choices():
+    return [tx_power_label(db) for db, _, _ in TX_POWER_STEPS]
+
+
+def tx_power_db_from_label(label):
+    for db, _, _ in TX_POWER_STEPS:
+        if tx_power_label(db) == label:
+            return db
+    return 0
+
+
+def tx_power_register(db, chan):
+    """The register value for a reduction in dB; 0 (= let the board use its default) for no reduction."""
+    db = int(db or 0)
+    for step, fine, coarse in TX_POWER_STEPS:
+        if step == db and db != 0:
+            if coarse is None:
+                coarse = 1 if int(chan) == 5 else 2
+            byte = (fine << 2) | coarse
+            return byte * 0x01010101
+    return 0
+
+
+def tx_power_describe(value, chan):
+    """Plain words for a register value as a trial file stores it ("0xFEFEFEFE" or a number)."""
+    if value in (None, ""):
+        return None
+    try:
+        v = int(value, 16) if isinstance(value, str) else int(value)
+    except ValueError:
+        return str(value)
+    default = 0xFDFDFDFD if chan is not None and int(chan) == 5 else 0xFEFEFEFE
+    if v in (0, default):
+        return "default (full power)"
+    for db, _, _ in TX_POWER_STEPS:
+        if db and tx_power_register(db, chan if chan is not None else 9) == v:
+            return "lowered by about %d dB (0x%08X)" % (-db, v)
+    return "custom 0x%08X" % v
+
+
+def apply_tx_power(settings):
+    """Turn the chosen reduction (settings["tx_power_db"]) into the register value sent to the board."""
+    radio = settings["advanced"]["radio"]
+    radio["tx_power"] = tx_power_register(settings.get("tx_power_db", 0), radio.get("chan", 9))
+    return radio["tx_power"]
+
+
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uwb_tool_settings.json")
 
 
@@ -725,6 +802,9 @@ def run_trial(link, role, settings, meta, stop_event=None, log=print, progress=T
                 log("Trial %s: CIR samples %d..%d, reply delays %d / %d us, CIR read %d us"
                     % (begin["trial_id"], begin["cir_start"], begin["cir_start"] + begin["cir_len"] - 1,
                        begin["resp_delay_us"], begin["final_delay_us"], begin["cir_read_us"]))
+                power = tx_power_describe(begin["radio"].get("tx_power"), begin["radio"].get("chan"))
+                if power and not power.startswith("default"):
+                    log("Transmit power of THIS board: %s. The other board has its own setting." % power)
                 if role == ROLE_INITIATOR:
                     log("Calling the responder... (it can be started before or after this board)")
                 show(force=True)

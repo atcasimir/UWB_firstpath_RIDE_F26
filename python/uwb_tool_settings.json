@@ -1,5 +1,5 @@
 {
-  "port": "COM5",
+  "port": "COM6",
   "baud": 1000000,
   "role": "responder",
   "data_dir": "C:\\Qorvo\\F401RE\\python\\data",
@@ -32,6 +32,8 @@
     }
   },
   "gui_repeat": false,
-  "responder_count": 500,
-  "gui_setup": "S001"
+  "responder_count": 300,
+  "gui_setup": "S006",
+  "gui_import_dir": "C:/Users/David/Downloads/data",
+  "gui_suspect_limit": 40
 }

@@ -40,7 +40,17 @@ import uwb_setups as us
 KINDS = ("poll", "response", "final")
 Z_LIMIT = 3.5           # robust z-score beyond which a value counts as abnormal
 MIN_FOR_RELATIVE = 15   # relative ("unlike the rest") checks need at least this many exchanges
-NLOS_GAP_SAMPLES = 6.0  # first path to peak distance treated as "likely NLOS" (Qorvo APS006 part 3)
+NLOS_GAP_SAMPLES = 6.0  # first path to peak distance treated as "strongest path is a later arrival" (Qorvo APS006 part 3)
+RULES_VERSION = 2       # raise when the flag rules change: analyses stored in older files are then redone
+
+# An exchange is flagged only when a value is BOTH unlike the rest of its trial (robust z-score
+# beyond Z_LIMIT) AND off by an amount that matters. These are the amounts.
+MIN_RANGE_DEV_M = 0.10      # range: at least this far from the trial median
+MIN_GAP_DEV = 3.0           # peak - first path: at least this many samples from the trial's usual value
+MIN_EDGE_DEV = 1.0          # first path vs rising edge: at least this many samples from the usual value
+MIN_EARLY = 5.0             # energy ahead of the first path: at least this many times the noise
+MAX_SHAPE = 0.80            # shape similarity below this (1.0 = identical to the trial's typical CIR)
+MIN_POWER_DEV_DB = 3.0      # first path power vs total power: at least this many dB from the usual value
 
 
 # --------------------------------------------------------------------------------------
@@ -96,6 +106,15 @@ def robust_z(x, floor=0.0):
     return (x - med) / scale, med
 
 
+def rare(values, value, tol=1.5, share=0.05):
+    """True when fewer than `share` of the values lie within `tol` of this one. A value that keeps
+    coming back (the peak hopping between two arrivals of similar strength, say) is a second
+    normal state of the trial, not an oddity of one exchange."""
+    v = np.asarray(values, dtype=float)
+    v = v[np.isfinite(v)]
+    return v.size > 0 and float(np.mean(np.abs(v - value) <= tol)) < share
+
+
 def describe(values, real=None):
     v = np.asarray(values, dtype=float)
     v = v[np.isfinite(v)]
@@ -138,6 +157,7 @@ def _kind_metrics(trial, kind):
     noise = np.full(n, np.nan)
     early = np.full(n, np.nan)
     corr = np.full(n, np.nan)
+    edge = np.full(n, np.nan)
     lo, hi = 8, 40
     windows = np.full((n, lo + hi), np.nan)
     for k in range(n):
@@ -151,6 +171,17 @@ def _kind_metrics(trial, kind):
             norm = np.linalg.norm(w)
             if norm > 0:
                 windows[k] = w / norm
+        # Where the rising edge really is: the point where the magnitude first climbs through half
+        # of the strongest value near the first path, measured from the chip's first path. Unlike
+        # "peak - first path" it does not jump when two arrivals of similar strength take turns
+        # being the strongest sample.
+        a, b = max(0, f - 12), min(length, f + hi)
+        if b - a > 4:
+            w = mag[k, a:b]
+            th = 0.5 * float(w.max())
+            j = int(np.argmax(w >= th))
+            if j > 0 and w[j] > w[j - 1]:
+                edge[k] = a + (j - 1) + (th - w[j - 1]) / (w[j] - w[j - 1]) - fp[k]
     good = np.isfinite(windows).all(axis=1)
     if good.sum() >= 3:
         template = np.median(windows[good], axis=0)
@@ -170,24 +201,28 @@ def _kind_metrics(trial, kind):
             corr[k] = best
 
     return {"xids": xids, "gap": gap, "status": status, "fp_amp": fp_amp, "peak_amp": peak_amp,
-            "power_diff": power_diff, "noise": noise, "early": early, "corr": corr}
+            "power_diff": power_diff, "noise": noise, "early": early, "corr": corr, "edge": edge}
 
 
 def analyze_trial(trial):
     """Statistics for a trial plus a list of exchanges that look abnormal, each with reasons.
 
-    An exchange is flagged when
-      - its range is far from the trial median (robust z-score),
-      - the chip itself raised a first-path warning flag for one of its frames,
-      - the first path is far ahead of the strongest path (likely NLOS),
-      - or one of its CIRs is unlike the rest of the trial: unusual first-path-to-peak
-        distance, unusual energy just before the reported first path, or an unusual shape.
-    "Unlike the rest" always means compared with the other exchanges of the same trial,
-    so the check adapts to the environment instead of relying on fixed thresholds.
+    Abnormal means: unlike the other exchanges of the SAME trial, and by an amount that matters.
+    Both conditions must hold, so a property that the whole trial shares (for example a reflection
+    that is stronger than the direct path in every exchange) flags nothing: it is reported once,
+    as a note about the trial. The one fixed rule is the chip's own first-path warning.
+
+      - range far from the trial median,
+      - the chip raised a first-path warning for one of the frames,
+      - the chip's first path sits somewhere else on the rising edge than usual,
+      - the strongest path is unusually far from the first path,
+      - energy well above the noise just before the reported first path,
+      - a CIR shaped unlike the rest, or a first path unusually weak against the total power.
     """
     real = trial.get("meta", {}).get("distance_m")
     xr, r = ranges(trial)
     reasons = {}
+    notes = []
 
     def flag(xid, text):
         reasons.setdefault(int(xid), []).append(text)
@@ -195,10 +230,11 @@ def analyze_trial(trial):
     if r.size >= 8:
         z, med = robust_z(r, floor=0.005)
         for xid, value, zz in zip(xr, r, z):
-            if abs(zz) > Z_LIMIT:
+            if abs(zz) > Z_LIMIT and abs(value - med) >= MIN_RANGE_DEV_M:
                 flag(xid, "range %.3f m is %+.3f m from the trial median" % (value, value - med))
 
     per_kind = {}
+    late_peak = {}
     for kind in KINDS:
         m = _kind_metrics(trial, kind)
         if m is None:
@@ -207,34 +243,48 @@ def analyze_trial(trial):
         for xid, st in zip(xids, m["status"]):
             if st & 0x1F:
                 flag(xid, "%s: chip first-path warning 0x%02X" % (kind, st))
-        for xid, g in zip(xids, m["gap"]):
-            if g > NLOS_GAP_SAMPLES:
-                flag(xid, "%s: first path %.1f samples before the peak (likely NLOS)" % (kind, g))
+        share = float(np.mean(m["gap"] > NLOS_GAP_SAMPLES))
+        if share >= 0.10:
+            late_peak[kind] = (share, float(np.nanmedian(m["gap"])))
         if len(xids) >= MIN_FOR_RELATIVE:
             zg, medg = robust_z(m["gap"], floor=0.5)
             for xid, g, zz in zip(xids, m["gap"], zg):
-                if abs(zz) > Z_LIMIT and g <= NLOS_GAP_SAMPLES:
-                    flag(xid, "%s: first-path-to-peak distance %.1f samples (trial median %.1f)" % (kind, g, medg))
+                if abs(zz) > Z_LIMIT and abs(g - medg) >= MIN_GAP_DEV and rare(m["gap"], g):
+                    flag(xid, "%s: peak is %.1f samples after the first path (usually %.1f in this trial)" % (kind, g, medg))
+            zd, medd = robust_z(m["edge"], floor=0.15)
+            for xid, d, zz in zip(xids, m["edge"], zd):
+                if np.isfinite(d) and abs(zz) > Z_LIMIT and abs(d - medd) >= MIN_EDGE_DEV:
+                    flag(xid, "%s: first path is %.1f samples %s than usual on the rising edge"
+                         % (kind, abs(d - medd), "earlier" if d > medd else "later"))
             ze, mede = robust_z(m["early"], floor=0.3)
             for xid, e, zz in zip(xids, m["early"], ze):
-                if np.isfinite(e) and zz > Z_LIMIT and e > 3.5:
+                if np.isfinite(e) and zz > Z_LIMIT and e >= MIN_EARLY:
                     flag(xid, "%s: energy before the reported first path (%.1f x noise, trial median %.1f)"
                          % (kind, e, mede))
             zc, medc = robust_z(1.0 - m["corr"], floor=0.01)
             for xid, c, zz in zip(xids, m["corr"], zc):
-                if np.isfinite(c) and zz > Z_LIMIT and c < 0.90:
+                if np.isfinite(c) and zz > Z_LIMIT and c < MAX_SHAPE:
                     flag(xid, "%s: CIR shape unlike the rest of the trial (similarity %.2f)" % (kind, c))
             zp, medp = robust_z(m["power_diff"], floor=1.0)
             for xid, p, zz in zip(xids, m["power_diff"], zp):
-                if np.isfinite(p) and zz > Z_LIMIT:
+                if np.isfinite(p) and zz > Z_LIMIT and abs(p - medp) >= MIN_POWER_DEV_DB:
                     flag(xid, "%s: first path %.1f dB below total power (trial median %.1f dB)" % (kind, p, medp))
         per_kind[kind] = {
             "n": int(len(xids)),
             "fp_to_peak_samples_median": float(np.nanmedian(m["gap"])),
+            "late_peak_share": share,
             "chip_warnings": int(np.count_nonzero(m["status"] & 0x1F)),
             "noise_rms_median": None if not np.isfinite(m["noise"]).any() else float(np.nanmedian(m["noise"])),
             "shape_similarity_median": None if not np.isfinite(m["corr"]).any() else float(np.nanmedian(m["corr"])),
         }
+
+    if late_peak:
+        notes.append(
+            "The strongest path is more than %g samples after the first path in %s. That is a property of this "
+            "setup (a reflection as strong as or stronger than the direct path, or a weakened direct path), "
+            "so it is noted here once and does not flag the exchanges."
+            % (NLOS_GAP_SAMPLES, ", ".join("%.0f %% of the %s messages (median %.1f samples)" % (100 * v[0], k, v[1])
+                                           for k, v in late_peak.items())))
 
     flagged = [{"xid": xid, "reasons": reasons[xid]} for xid in sorted(reasons)]
     flagged_ids = set(reasons)
@@ -246,7 +296,41 @@ def analyze_trial(trial):
         "range_without_flagged": describe(clean, real),
         "per_message": per_kind,
         "flagged": flagged,
+        "notes": notes,
+        "rules": RULES_VERSION,
     }
+
+
+def own_tx_power(trial):
+    """The TX_POWER register value a one-sided trial file's board ran with, as "0x........"."""
+    return (((trial or {}).get("params") or {}).get("radio") or {}).get("tx_power")
+
+
+def tx_power_text(trial):
+    """Transmit power of a trial in plain words, or None when it was the default on every board in the file."""
+    import uwb_tool as ut
+    chan = ((trial.get("params") or {}).get("radio") or {}).get("chan")
+    both = trial.get("tx_power")
+    if isinstance(both, dict):
+        sides = {k: ut.tx_power_describe(v, chan) for k, v in both.items() if v not in (None, "")}
+    else:
+        v = own_tx_power(trial)
+        sides = {trial.get("role") or "this board": ut.tx_power_describe(v, chan)} if v not in (None, "") else {}
+    if not sides or all(t.startswith("default") for t in sides.values()):
+        return None
+    if len(set(sides.values())) == 1 and len(sides) > 1:
+        return "both boards " + next(iter(sides.values()))
+    return ", ".join("%s %s" % (k, t) for k, t in sides.items())
+
+
+def analysis_of(trial):
+    """The trial's analysis: the one stored in the file when it was made with the current flag
+    rules, otherwise a fresh one (files saved before a rule change keep their old flags inside)."""
+    a = trial.get("analysis")
+    if not a or a.get("rules") != RULES_VERSION:
+        a = analyze_trial(trial)
+        trial["analysis"] = a
+    return a
 
 
 # --------------------------------------------------------------------------------------
@@ -294,6 +378,7 @@ def merge_trials(init, resp):
         "meta_responder": resp.get("meta"),
         "params": init.get("params") or resp.get("params"),
         "ant_dly": {"initiator": uc.own_ant_dly(init), "responder": uc.own_ant_dly(resp)},
+        "tx_power": {"initiator": own_tx_power(init), "responder": own_tx_power(resp)},
         "devices": {"initiator": init.get("device"), "responder": resp.get("device")},
         "end": {"initiator": init.get("end"), "responder": resp.get("end")},
         "link": {"initiator": init.get("link"), "responder": resp.get("link")},
@@ -436,6 +521,9 @@ def report(path):
     print("%s%s" % (us.setup_title(meta), (", placement %s" % meta["placement"]) if meta.get("placement") is not None else ""))
     print("started %s      exchanges: %d completed, %d failed, %d flagged as abnormal"
           % (trial.get("started"), a["n"], a["n_failed"], len(a["flagged"])))
+    power = tx_power_text(trial)
+    if power:
+        print("transmit power: %s" % power)
 
     print("")
     print("RANGE: reported vs actual")
@@ -471,7 +559,8 @@ def report(path):
                 print("   %-10s %11.2f %11.0f %8.2f samples %9.2f ns %12.2f .. %.2f samples"
                       % (kind, g["fp"], g["peak"], g["gap"], g["gap"] * SAMPLE_NS, g["gap_min"], g["gap_max"]))
         print("   (first path = where the chip says the signal first arrived; peak = strongest sample.")
-        print("    1 to 3 samples apart is a clean direct path; more than %g suggests the direct path is blocked.)" % NLOS_GAP_SAMPLES)
+        print("    1 to 3 samples apart is a clean direct path; more than %g means the strongest arrival is a later one:" % NLOS_GAP_SAMPLES)
+        print("    a strong reflection, or a blocked direct path. It is a note about the setup, not a flag.)")
 
     ranged = [r for r in d["rows"] if r["diff_m"] is not None]
     if ranged:
@@ -492,6 +581,9 @@ def report(path):
             print("   %-5d %s" % (item["xid"], "; ".join(item["reasons"])))
     else:
         print("No exchanges flagged as abnormal.")
+    for note in a.get("notes") or []:
+        print("")
+        print("NOTE about this trial: " + note)
     return a
 
 
@@ -562,7 +654,7 @@ def _report_charts(d):
             pts = [(r["xid"], r["msg"][kind]["gap"]) for r in d["rows"] if kind in r["msg"] and r["status"] == "ok"]
             if pts:
                 ax.plot([p[0] for p in pts], [p[1] for p in pts], ".", ms=5, color=colors[kind], label=kind)
-        ax.axhline(NLOS_GAP_SAMPLES, color="#b3261e", lw=1, ls=":", label="above this: direct path likely blocked")
+        ax.axhline(NLOS_GAP_SAMPLES, color="#b3261e", lw=1, ls=":", label="above this: the peak is a later arrival")
         ax.set(xlabel="exchange number", ylabel="peak - first path (samples)",
                title="Distance between the first path and the peak, every exchange")
         sec = ax.secondary_yaxis("right", functions=(lambda v: v * SAMPLE_NS, lambda v: v / SAMPLE_NS))
@@ -603,6 +695,7 @@ def write_report(path, out=None):
     chan = ((trial.get("params") or {}).get("radio") or {}).get("chan")
     if chan is not None:
         extra.append(("Channel", chan))
+    extra.append(("Transmit power", tx_power_text(trial)))
     bits = ["%s: %s" % (k, esc(str(v))) for k, v in extra if v not in (None, "")]
     if bits:
         h.append('<div class="sub">%s</div>' % " &nbsp;|&nbsp; ".join(bits))
@@ -637,6 +730,8 @@ def write_report(path, out=None):
         if c and a["flagged"] and "bias_m" in c:
             h.append('<div class="note">Leaving out the %d flagged exchanges: mean %.3f m, difference %+.3f m (%s), sd %s m.</div>'
                      % (len(a["flagged"]), c["mean_m"], c["bias_m"], _cm(c["bias_m"]), fmt(c["std_m"])))
+        for note in a.get("notes") or []:
+            h.append('<div class="note"><b>About this trial:</b> %s</div>' % esc(note))
         if off is None:
             h.append('<div class="note">Not calibrated: %s. The difference above still contains the boards\' antenna delay.</div>'
                      % esc(d["cal_how"]))
@@ -660,7 +755,8 @@ def write_report(path, out=None):
                             g["gap"] * SAMPLE_NS, g["gap"] * SAMPLE_NS * CM_PER_NS, g["gap_min"], g["gap_max"], g["n"]))
         h.append("</table>")
         h.append('<div class="note">1 to 3 samples between first path and peak is a clean direct path. More than %g samples '
-                 "means a weak early arrival ahead of a stronger later one: the direct path is probably blocked.</div>" % NLOS_GAP_SAMPLES)
+                 "means the strongest arrival is a later one: a strong reflection, or a blocked direct path. That describes the setup; "
+                 "it does not flag an exchange on its own.</div>" % NLOS_GAP_SAMPLES)
         if len(charts) > 1:
             h.append('<img src="%s" alt="first path to peak"><div class="sub">%s</div>' % (charts[1][1], esc(charts[1][0])))
 
@@ -697,7 +793,7 @@ def write_report(path, out=None):
         for k in kinds:
             m = r["msg"].get(k)
             if m:
-                warn = ' style="color:#b3261e;font-weight:600"' if m["gap"] > NLOS_GAP_SAMPLES else ""
+                warn = ' style="color:#9a6700"' if m["gap"] > NLOS_GAP_SAMPLES else ""
                 cells.append('<td class="g">%.2f</td><td>%d</td><td%s>%.2f</td><td%s>%.2f</td>' % (m["fp"], m["peak"], warn, m["gap"], warn, m["gap_ns"]))
             else:
                 cells.append('<td class="g">-</td><td>-</td><td>-</td><td>-</td>')
@@ -758,7 +854,7 @@ def compare(paths, group=None, drop_flagged=False, setup=None, flt=None):
     groups = {}
     for p, trial in _filtered(paths, group, setup, flt):
         meta = trial.get("meta") or {}
-        a = trial.get("analysis") or analyze_trial(trial)
+        a = analysis_of(trial)
         xr, r = ranges(trial)
         if drop_flagged:
             bad = {f["xid"] for f in a["flagged"]}
@@ -774,6 +870,11 @@ def compare(paths, group=None, drop_flagged=False, setup=None, flt=None):
         print("%-36s %4s %6s %5s %9s %9s %8s %8s %8s %8s %5s  %s"
               % ("file", "plc", "real", "n", "mean", "95% CI", "sd", "median", "bias", "cal bias", "flag",
                  "vs the other trials"))
+        powers = {tx_power_text(t) or "default" for _, t, _, _ in items}
+        if len(powers) > 1:
+            print("NOTE: these trials were not all taken at the same transmit power (%s). Lower power changes the"
+                  % "; ".join(sorted(powers)))
+            print("      received level and with it the range a little, so compare like with like.")
         allr = np.concatenate([r for _, _, r, _ in items]) if items else np.array([])
         by_place = {}
         for idx, (p, trial, r, nflag) in enumerate(items):
@@ -836,7 +937,7 @@ def summary(paths, flt=None, drop_flagged=False):
     table = {}
     for p, trial in _filtered(paths, flt=flt):
         meta = trial.get("meta") or {}
-        a = trial.get("analysis") or analyze_trial(trial)
+        a = analysis_of(trial)
         xr, r = ranges(trial)
         if drop_flagged:
             bad = {f["xid"] for f in a["flagged"]}
@@ -888,7 +989,7 @@ def summary(paths, flt=None, drop_flagged=False):
 
 def export_csv(path, out=None):
     trial = load_trial(path)
-    a = trial.get("analysis") or analyze_trial(trial)
+    a = analysis_of(trial)
     why = {f["xid"]: "; ".join(f["reasons"]) for f in a["flagged"]}
     out = out or os.path.splitext(path)[0] + ".csv"
     cols = ["xid", "status", "range_m", "tof_ns", "flagged", "reasons"]
@@ -917,7 +1018,7 @@ def plot(path, out=None):
     import matplotlib.pyplot as plt
 
     trial = load_trial(path)
-    a = trial.get("analysis") or analyze_trial(trial)
+    a = analysis_of(trial)
     bad = {f["xid"] for f in a["flagged"]}
     kinds = [k for k in KINDS if stack_cir(trial, k)[1].shape[0]]
     fig, axes = plt.subplots(1, len(kinds) + 1, figsize=(6 * (len(kinds) + 1), 4.8))
@@ -962,11 +1063,11 @@ def suspects(trial, cal=None):
     The signs looked for, and what each adds to the score:
       - range far from the rest of the trial. Too LONG is the classic miss: a later path was taken
         as the first. Too short: noise or a sidelobe ahead of the pulse was taken as the first.
-      - the three messages of one exchange disagree about where the first path sits relative to the
-        peak. They cross the same channel within about 20 ms, so they should agree.
+      - the three messages of one exchange disagree about where the first path sits on the rising
+        edge. They cross the same channel within about 20 ms, so they should agree.
       - energy ahead of the reported first path, well above the noise: an earlier arrival exists.
       - the chip's own first-path warning flags.
-      - first path far ahead of the peak: direct path blocked, weak first path, estimate fragile.
+      - the peak unusually far behind the first path, compared with the rest of the trial.
       - CIR shape near the first path unlike the rest of the trial.
     """
     real = (trial.get("meta") or {}).get("distance_m")
@@ -981,7 +1082,7 @@ def suspects(trial, cal=None):
     if r.size >= 8:
         z, med = robust_z(r, floor=0.01)
         for xid, value, zz in zip(xr, r, z):
-            if abs(zz) > Z_LIMIT:
+            if abs(zz) > Z_LIMIT and abs(value - med) >= MIN_RANGE_DEV_M:
                 dev = value - med
                 add(xid, min(5.0, abs(zz) / Z_LIMIT) + (0.5 if dev > 0 else 0.0),
                     "range %+.2f m from the trial's median: %s" % (
@@ -998,24 +1099,32 @@ def suspects(trial, cal=None):
         if m is None:
             continue
         for k, xid in enumerate(m["xids"]):
-            per.setdefault(int(xid), {})[kind] = {key: m[key][k] for key in ("gap", "status", "early", "corr")}
-        med_corr = np.nanmedian(m["corr"]) if np.isfinite(m["corr"]).any() else None
+            per.setdefault(int(xid), {})[kind] = {key: m[key][k] for key in ("gap", "status", "early", "corr", "edge")}
+        relative = len(m["xids"]) >= MIN_FOR_RELATIVE
+        zg, medg = robust_z(m["gap"], floor=0.5)
+        zd, medd = robust_z(m["edge"], floor=0.15)
+        zc, _ = robust_z(1.0 - m["corr"], floor=0.01)
         for k, xid in enumerate(m["xids"]):
             e, st, g, c = m["early"][k], int(m["status"][k]), m["gap"][k], m["corr"][k]
-            if np.isfinite(e) and e >= 5.0:
-                add(xid, min(4.0, e / 5.0), "%s: energy %.0f x noise just before the reported first path (an earlier arrival?)" % (kind, e))
+            if np.isfinite(e) and e >= MIN_EARLY:
+                add(xid, min(4.0, e / MIN_EARLY), "%s: energy %.0f x noise just before the reported first path (an earlier arrival?)" % (kind, e))
             if st & 0x1F:
                 add(xid, 1.5, "%s: the chip itself doubted its first path (warning 0x%02X)" % (kind, st))
-            if g > NLOS_GAP_SAMPLES:
-                add(xid, 1.0, "%s: first path %.1f samples ahead of the peak (weak first path, likely blocked)" % (kind, g))
-            if med_corr is not None and np.isfinite(c) and c < 0.90 and c < med_corr - 0.05 and len(m["xids"]) >= MIN_FOR_RELATIVE:
+            if relative and abs(zg[k]) > Z_LIMIT and abs(g - medg) >= MIN_GAP_DEV and rare(m["gap"], g):
+                add(xid, 1.0, "%s: peak is %.1f samples after the first path (usually %.1f in this trial)" % (kind, g, medg))
+            d = m["edge"][k]
+            if relative and np.isfinite(d) and abs(zd[k]) > Z_LIMIT and abs(d - medd) >= MIN_EDGE_DEV:
+                add(xid, min(4.0, abs(d - medd) / MIN_EDGE_DEV), "%s: first path is %.1f samples %s than usual on the rising edge"
+                    % (kind, abs(d - medd), "earlier" if d > medd else "later"))
+            if relative and np.isfinite(c) and zc[k] > Z_LIMIT and c < MAX_SHAPE:
                 add(xid, 1.0, "%s: CIR shape unlike the rest of the trial (similarity %.2f)" % (kind, c))
     for xid, kinds in per.items():
-        gaps = {k: v["gap"] for k, v in kinds.items()}
+        gaps = {k: v["edge"] for k, v in kinds.items() if np.isfinite(v["edge"])}
         if len(gaps) >= 2:
             spread = max(gaps.values()) - min(gaps.values())
-            if spread > 2.0:
-                add(xid, min(4.0, spread / 2.0), "the messages disagree on the first path: peak - first path is %s samples"
+            if spread > MIN_EDGE_DEV:
+                add(xid, min(4.0, spread / MIN_EDGE_DEV),
+                    "the messages disagree on the first path: rising edge is %s samples after it"
                     % ", ".join("%s %.1f" % (k, gaps[k]) for k in KINDS if k in gaps))
     return sorted(found.values(), key=lambda f: -f["score"])
 
@@ -1036,7 +1145,7 @@ def plot_cirs(path, out=None, window=(-25, 90), progress=None, only=None, limit=
     from matplotlib.backends.backend_pdf import PdfPages
 
     trial = load_trial(path)
-    a = trial.get("analysis") or analyze_trial(trial)
+    a = analysis_of(trial)
     why = {f["xid"]: "; ".join(f["reasons"]) for f in a["flagged"]}
     meta = trial.get("meta") or {}
     exchanges = [e for e in trial["exchanges"] if any(k in e for k in KINDS)]
@@ -1230,7 +1339,7 @@ def export_dataset(paths, out=None, flt=None, include_failed=False):
     n_files = 0
     for p, trial in _filtered(paths, flt=flt):
         meta = trial.get("meta") or {}
-        a = trial.get("analysis") or analyze_trial(trial)
+        a = analysis_of(trial)
         bad = {f["xid"] for f in a["flagged"]}
         chan = ((trial.get("params") or {}).get("radio") or {}).get("chan")
         off = cal_offset(p, trial)
@@ -1342,7 +1451,7 @@ def calibrate(paths, save=False):
     trials = []
     for p in paths:
         trial = load_trial(p)
-        trials.append((os.path.basename(p), trial, trial.get("analysis") or analyze_trial(trial)))
+        trials.append((os.path.basename(p), trial, analysis_of(trial)))
     proposal, lines = uc.propose(trials)
     print("\n".join(lines))
     if proposal and save:
