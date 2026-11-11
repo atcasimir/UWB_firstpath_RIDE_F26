@@ -7,3 +7,7 @@ started,trial_id,role,file,group,condition,distance_m,n_ok,n_failed,mean_m,std_m
 2026-11-10T17:57:58-06:00,29159C06,responder,S005_Hallway_12x15_p1_001_responder.json,"S005 Hallway, 12x15",NLOS,5.86,300,0,7.6256,0.2374,1.7656,30,done
 2026-11-10T18:16:07-06:00,10DEA566,responder,S005_Hallway_12x15_p1_002_responder.json,"S005 Hallway, 12x15",NLOS,5.86,300,0,7.7259,0.0762,1.8659,66,done
 2026-11-10T18:19:36-06:00,9BC86921,responder,S006_Hallway_12x12_p1_001_responder.json,"S006 Hallway, 12x12",NLOS,5.17,300,0,5.3864,0.0324,0.2164,7,done
+2026-11-10T18:41:43-06:00,70FE548F,responder,S006_Hallway_12x12_p1_002_responder.json,"S006 Hallway, 12x12",NLOS,5.17,300,0,5.3876,0.0395,0.2176,15,done
+2026-11-10T18:45:42-06:00,4A620349,responder,S006_Hallway_12x12_p1_003_responder.json,"S006 Hallway, 12x12",NLOS,5.17,0,2,,,,0,stopped_here
+2026-11-10T18:46:10-06:00,C353093A,responder,S006_Hallway_12x12_p1_004_responder.json,"S006 Hallway, 12x12",NLOS,5.17,300,0,6.1752,0.8264,1.0052,119,done
+2026-11-10T18:54:03-06:00,F4536FC7,responder,S006_Hallway_12x12_p1_005_responder.json,"S006 Hallway, 12x12",NLOS,5.17,1500,0,6.0247,0.7333,0.8547,670,done

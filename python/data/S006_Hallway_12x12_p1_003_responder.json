@@ -1,0 +1,20 @@
+{
+ "format": "uwb-cir-trial",
+ "version": 1,
+ "trial_id": "4A620349",
+ "role": "responder",
+ "started": "2026-11-10T18:45:42-06:00",
+ "ended": "2026-11-10T18:45:55-06:00",
+ "host": "HuntSLS",
+ "meta": {"setup_id": "S006", "setup_name": "Hallway, 12x12", "placement": 1, "site": "ECSN, Hallway", "distance_m": 5.17, "condition": "NLOS", "obstruction": "", "orientation": "", "antenna_height_m": null, "setup_notes": "", "notes": "", "group": "S006 Hallway, 12x12"},
+ "params": {"trial_id": "4A620349", "target_count": 300, "interval_ms": 0, "cir_start": 0, "cir_len": 1016, "resp_delay_us": 12300, "final_delay_us": 12300, "cir_read_us": 8048, "radio": {"chan": 9, "preamble_len": 128, "pac": 8, "tx_code": 9, "rx_code": 9, "sfd_type": 1, "data_rate": "6M8", "sfd_timeout": 129, "pg_delay": 52, "tx_power": "0x26262626", "tx_ant_dly": 16385, "rx_ant_dly": 16385}},
+ "device": {"dev_id": "0xDECA0302", "part_id": "0x512306A6", "lot_id": "33394d4756500000", "temp_c": 44.05, "vbat_v": 3.276},
+ "end": {"reason": "stopped_here", "attempts": 2, "completed": 0, "n_timeout": 2, "n_late_tx": 0, "n_rx_error": 170, "n_foreign": 0, "cir_verify": "not_run", "resp_delay_us": 12300, "final_delay_us": 12300},
+ "link": {"port": "COM6", "baud": 1000000, "crc_errors": 0},
+ "summary": null,
+ "analysis": {"n": 0, "n_failed": 2, "range": null, "range_without_flagged": null, "per_message": {}, "flagged": [], "notes": [], "rules": 2},
+ "exchanges": [
+  {"xid":1,"status":"no_final","t_ms":6567037,"completed":0,"proc_us":8575,"resp_delay_us":12300,"final_delay_us":12300,"sys_status":"0x038000F3"},
+  {"xid":1,"status":"no_final","t_ms":6568886,"completed":0,"proc_us":8574,"resp_delay_us":12300,"final_delay_us":12300,"sys_status":"0x000000F0"}
+ ]
+}

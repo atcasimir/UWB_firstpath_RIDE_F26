@@ -89,9 +89,9 @@
    "notes": "",
    "id": "S006",
    "placement": 1,
-   "trials": 1,
+   "trials": 5,
    "created": "2026-11-10T18:19:33-06:00",
-   "trials_this_placement": 1
+   "trials_this_placement": 5
   }
  ]
 }

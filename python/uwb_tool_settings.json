@@ -26,14 +26,15 @@
       "data_rate": "6M8",
       "sfd_timeout": 0,
       "pg_delay": 0,
-      "tx_power": 0,
+      "tx_power": 1381126738,
       "tx_ant_dly": 16385,
       "rx_ant_dly": 16385
     }
   },
   "gui_repeat": false,
-  "responder_count": 300,
+  "responder_count": 1500,
   "gui_setup": "S006",
   "gui_import_dir": "C:/Users/David/Downloads/data",
-  "gui_suspect_limit": 40
+  "gui_suspect_limit": 40,
+  "tx_power_db": -9
 }
